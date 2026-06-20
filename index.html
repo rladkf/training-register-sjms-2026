@@ -2,11 +2,10 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<!-- 모바일에서 화면 확대/축소를 완벽히 방지합니다 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>상정중 교직원 연수 전자 등록부_융합정보부(2026.6.22.)</title>
 <meta property="og:title" content="상정중 교직원 연수 전자 등록부_융합정보부(2026.6.22.)">
-<meta property="og:description" content="상정중 교직원 연수 통합 전자 등록부 서명 페이지입니다.">
+<meta property="og:description" content="교직원 연수 통합 전자 등록부 서명 페이지입니다.">
 
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
@@ -36,8 +35,7 @@
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   
   html, body {
-    /* 모바일 브라우저의 전역 고무줄 효과(당겨서 새로고침) 방지 */
-    overscroll-behavior-y: none;
+    overscroll-behavior-y: none; /* 당겨서 새로고침 방지 */
   }
   
   body {
@@ -50,6 +48,12 @@
       "Malgun Gothic", system-ui, sans-serif;
     line-height: 1.55;
     -webkit-text-size-adjust: 100%;
+  }
+
+  /* 모달 열렸을 때 백그라운드 얌전하게 고정 */
+  body.modal-open {
+    overflow: hidden !important;
+    touch-action: none !important;
   }
 
   .wrap { max-width: 820px; margin: 0 auto; padding: 20px 14px 70px; }
@@ -199,30 +203,27 @@
   .dot.off { background: var(--danger); }
 
   /* ---------- Modal (공통) ---------- */
+  /* ★ 흔들림 완벽 방지: display: flex 레이아웃을 버리고 block과 absolute로 모달을 강제 고정합니다. */
   .overlay {
-    position: fixed; inset: 0;
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
     background: rgba(20,28,42,.5); backdrop-filter: blur(3px);
-    display: none; align-items: flex-end; justify-content: center; z-index: 50; padding: 0;
-    
-    /* ★ 주소창 숨김 방어 핵심: 100svh를 사용하여 모달 높이를 완전히 고정합니다! */
-    height: 100vh;
-    height: 100svh;
+    display: none; z-index: 50; padding: 0;
+    touch-action: none; /* 배경의 스크롤 원천 차단 */
   }
-  .overlay.show { display: flex; }
-  @media (min-width: 560px) { .overlay { align-items: center; padding: 20px; } }
+  .overlay.show { display: block; }
   
   .modal {
-    position: relative; background: #fff; width: 100%; max-width: 540px;
+    position: absolute; bottom: 0; left: 0; right: 0; margin: 0 auto;
+    background: #fff; width: 100%; max-width: 540px;
     border-radius: 18px 18px 0 0; box-shadow: 0 -10px 40px rgba(0,0,0,.25);
     overflow: hidden; 
-    /* 모달 자체의 애니메이션 효과 (부드러운 페이드인) */
-    animation: modalFadeIn .15s ease-out;
     display: flex; flex-direction: column; max-height: 90%; 
+    animation: modalFadeIn .15s ease-out;
   }
   @media (min-width: 560px) { .modal { border-radius: 18px; } }
   @keyframes modalFadeIn { 
-    from { opacity: 0; } 
-    to { opacity: 1; } 
+    from { opacity: 0; transform: translateY(10px); } 
+    to { opacity: 1; transform: translateY(0); } 
   }
 
   .modal-close {
@@ -246,7 +247,7 @@
   .modal-head .who-name { font-size: 14px; color: var(--ink-soft); margin-top: 4px; font-weight: 600; }
   .pad-wrap { padding: 12px 22px 4px; }
   
-  /* ★ 서명 패드 CSS: 브라우저 기본 제스처 차단 */
+  /* ★ 서명 패드 CSS: 브라우저 고유 제스처 무력화 */
   .pad {
     position: relative; border: 1.5px dashed var(--line); border-radius: 12px;
     background: #fffdf8; overflow: hidden;
@@ -260,11 +261,10 @@
     cursor: crosshair; 
     outline: none;
   }
-  /* 흔들림 방지: 요소 삭제(display: none)가 아닌 투명도(opacity)로 텍스트 숨김 */
   .pad .placeholder {
     position: absolute; left: 10px; right: 10px; bottom: 16px; text-align: center;
     font-size: 12.5px; color: #b9b2a0; pointer-events: none; line-height: 1.4;
-    transition: opacity 0.1s ease-out; 
+    transition: opacity 0.15s ease-out; 
     opacity: 1;
   }
   .modal-actions { display: flex; gap: 10px; padding: 12px 22px 22px; }
@@ -707,7 +707,10 @@
         if (document.activeElement) {
             document.activeElement.blur(); 
         }
-        openModal(i);
+        // 버튼 누르고 0.15초 뒤에 모달을 열어 포커스 해제로 인한 화면 들썩임을 최소화
+        setTimeout(() => {
+            openModal(i);
+        }, 150); 
       };
       
       act.appendChild(btn);
@@ -735,8 +738,6 @@
 
   /* ---------- Signature pad ---------- */
   let ctx, drawing = false, dirty = false, last = null;
-  // ★ 첫 터치 시 좌표를 구해서 영구 보존합니다.
-  let canvasRect = null; 
 
   function setupCanvas() {
     const c = el.canvas;
@@ -752,12 +753,10 @@
     ctx.strokeStyle = "#16213a";
     dirty = false;
     el.placeholder.style.opacity = "1"; 
-    canvasRect = null; 
   }
   
   function pos(e) {
-    // 캔버스 위치가 0.1픽셀이라도 움직이는 것을 막기 위해, 첫 터치 시 고정한 위치를 계속 사용!
-    const rect = canvasRect || el.canvas.getBoundingClientRect();
+    const rect = el.canvas.getBoundingClientRect();
     let cx = e.clientX;
     let cy = e.clientY;
     if (e.touches && e.touches.length > 0) {
@@ -767,27 +766,18 @@
     return { x: cx - rect.left, y: cy - rect.top };
   }
   
-  /* ★★★ 서명 흔들림 방지: 캔버스 터치 이벤트 완벽 방어 및 버블링(새어나감) 차단 ★★★ */
+  /* ★ 서명 시에만 브라우저 스크롤을 무효화하는 가장 안전하고 정석적인 코드 */
   function start(e) {
-    if (e.cancelable) e.preventDefault(); 
-    e.stopPropagation(); // 브라우저 상위로 터치 이벤트가 넘어가지 않도록 차단
-    
+    e.preventDefault(); 
     drawing = true; dirty = true;
     el.placeholder.style.opacity = "0"; 
-    
-    // 손가락이 닿는 첫 순간 캔버스의 절대 위치를 기록해둡니다.
-    if (!canvasRect) {
-        canvasRect = el.canvas.getBoundingClientRect();
-    }
     
     last = pos(e);
     ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(last.x + .1, last.y + .1); ctx.stroke();
   }
   
   function move(e) {
-    if (e.cancelable) e.preventDefault(); 
-    e.stopPropagation(); // 스크롤(터치 바운스)을 유발하는 무브 이벤트 상위 전달 차단
-    
+    e.preventDefault(); 
     if (!drawing) return; 
     const p = pos(e);
     ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke();
@@ -795,38 +785,20 @@
   }
   
   function end(e) { 
-    if (e && e.cancelable) e.preventDefault();
-    if (e) e.stopPropagation();
     drawing = false; 
-    canvasRect = null; // 서명이 끝나면 캔버스 좌표 리셋
   }
   
   function bindPad() {
     const c = el.canvas;
-    const padWrap = document.querySelector('.pad');
     
-    // 마우스 이벤트 (PC용)
     c.addEventListener("mousedown", start);
     c.addEventListener("mousemove", move);
     window.addEventListener("mouseup", end);
     
-    // 모바일 터치 이벤트 (passive: false로 강력히 막음)
     c.addEventListener("touchstart", start, { passive: false });
     c.addEventListener("touchmove", move, { passive: false });
     c.addEventListener("touchend", end, { passive: false });
     c.addEventListener("touchcancel", end, { passive: false });
-
-    // 패드 테두리를 스쳤을 때 화면이 튀는 것을 막기 위함
-    if (padWrap) {
-      padWrap.addEventListener('touchstart', (e) => {
-        if (e.target === padWrap || e.target.classList.contains('placeholder')) {
-           if (e.cancelable) e.preventDefault();
-        }
-      }, { passive: false });
-      padWrap.addEventListener('touchmove', (e) => {
-         if (e.cancelable) e.preventDefault();
-      }, { passive: false });
-    }
   }
 
   /* ---------- 서명 모달 (아직 안 한 연수만) ---------- */
@@ -871,6 +843,7 @@
     el.saveBtn.textContent = (qpos === queue.length - 1) ? "저장하고 완료 ✓" : "저장하고 다음 ▶";
     el.modalHint.classList.remove("show");
 
+    // 캔버스 사이즈와 위치를 안정적으로 지정
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         setupCanvas();
@@ -882,7 +855,6 @@
   function closeModal() {
     el.overlay.classList.remove("show");
     document.body.classList.remove("modal-open");
-    
     activeIndex = null; pending = null; queue = []; qpos = 0;
   }
   
