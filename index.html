@@ -2,9 +2,9 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<!-- 모바일에서 입력/서명 시 화면이 강제로 확대되는 것을 방지합니다 -->
+<!-- 모바일에서 입력/서명 시 화면 확대/축소를 방지합니다 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>교직원 연수 통합 전자 등록부</title>
+<title>상정중 교직원 연수 등록부_융합정보부(2026.6.22.)</title>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -228,13 +228,13 @@
   .modal-head .who-name { font-size: 14px; color: var(--ink-soft); margin-top: 4px; font-weight: 600; }
   .pad-wrap { padding: 12px 22px 4px; }
   
-  /* 터치 흔들림 방지 핵심 CSS 추가 */
+  /* 터치 흔들림 방지 핵심 CSS 강력 적용 */
   .pad {
     position: relative; border: 1.5px dashed var(--line); border-radius: 12px;
     background: #fffdf8; overflow: hidden;
-    touch-action: none;          /* 캔버스 및 캔버스 여백 터치 시 스크롤/확대 원천 차단 */
-    overscroll-behavior: none;   /* iOS 사파리의 바운스(고무줄) 효과 차단 */
-    -webkit-touch-callout: none; /* 꾹 누를 때 뜨는 메뉴 방지 */
+    touch-action: none;          /* 브라우저 기본 제스처 100% 차단 */
+    overscroll-behavior: none;   
+    -webkit-touch-callout: none; /* iOS 꾹 누를 때 뜨는 메뉴 방지 */
     -webkit-user-select: none;   /* 텍스트 선택 방지 */
     user-select: none;
   }
@@ -270,10 +270,7 @@
   .chooser-foot .btn { width: 100%; }
 
   /* ---------- 복무 상황 입력 모달 ---------- */
-  #dutyOverlay {
-    /* 복무 상황 모달은 스크롤이 필요하므로 예외 처리 */
-    touch-action: auto;
-  }
+  #dutyOverlay { touch-action: auto; /* 복무 상황 모달은 스크롤 허용 */ }
   .duty-head { padding: 20px 22px 8px; }
   .duty-head .dt { font-size: 18px; font-weight: 800; }
   .duty-head .ds { font-size: 12.5px; color: var(--ink-soft); margin-top: 4px; line-height: 1.5; }
@@ -554,8 +551,6 @@
 
   /* ============================================================
      ▼▼▼ 선생님의 GitHub 배포 시 필수로 수정해야 할 부분 ▼▼▼
-     선생님의 Firebase 프로젝트 콘솔에서 앱을 등록하고 받은
-     아래 설정값들을 꼭 입력해 주세요!
      ============================================================ */
   let firebaseConfig, appId, collPath;
 
@@ -565,7 +560,7 @@
       appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
       collPath = `artifacts/${appId}/public/data/registrations`;
   } else {
-      // ★ 여기에 선생님의 Firebase 설정값을 따옴표 안에 채워넣으세요 ★
+      // ★ 선생님의 Firebase 설정값이 들어있습니다. ★
       firebaseConfig = {
         apiKey: "AIzaSyAZeXVqkfNH6CpQ2C5iTfItrYD2WBywcoM",
         authDomain: "training-attendance-register.firebaseapp.com",
@@ -576,7 +571,7 @@
         appId: "1:819284762894:web:ce0f4a4e1592d7a1c4b75f",
         measurementId: "G-4HX23HMJN5"
       };
-      // 사용할 데이터베이스 폴더 이름입니다. 연도/학기 등에 따라 바꿔 쓰셔도 됩니다.
+      // 사용할 데이터베이스 폴더 이름
       collPath = `registrations_2026`;
   }
   /* ▲▲▲ Firebase 설정 끝 ▲▲▲ */
@@ -638,10 +633,33 @@
   document.querySelectorAll(".total0").forEach(n => n.textContent = ROSTER.length);
   document.querySelectorAll(".total1").forEach(n => n.textContent = ROSTER.length);
 
-  // 추가: 서명 모달 배경 터치 시 스크롤 완벽 차단
+  /* ★★★ 흔들림 방지 1: 모달 배경 자체에서 터치스크롤 100% 차단 ★★★ */
   el.overlay.addEventListener('touchmove', function(e) {
     if (e.cancelable) e.preventDefault();
   }, { passive: false });
+
+  /* ★★★ 흔들림 방지 2: 모달이 켜졌을 때 뒷배경 고정 (바운스 원천 차단) ★★★ */
+  let lockedScrollY = 0;
+  function lockBodyScroll() {
+    lockedScrollY = window.scrollY;
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${lockedScrollY}px`;
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.width = '100%';
+    document.body.style.overflow = 'hidden';
+    document.body.style.touchAction = 'none'; // 브라우저 제스처 차단
+  }
+  function unlockBodyScroll() {
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.left = '';
+    document.body.style.right = '';
+    document.body.style.width = '';
+    document.body.style.overflow = '';
+    document.body.style.touchAction = '';
+    window.scrollTo(0, lockedScrollY);
+  }
 
   function setSync(ok, msg) {
     el.syncDot.classList.toggle("off", !ok);
@@ -731,13 +749,14 @@
     dirty = false;
     el.placeholder.style.display = "block";
   }
+  
   function pos(e) {
     const rect = el.canvas.getBoundingClientRect();
     const p = e.touches ? e.touches[0] : e;
     return { x: p.clientX - rect.left, y: p.clientY - rect.top };
   }
   
-  // 터치 흔들림 방지 적용 (e.stopPropagation 추가 및 예외 처리 강화)
+  /* ★★★ 흔들림 방지 3: 서명 그리기 시 절대적으로 스크롤을 막는 로직 ★★★ */
   function start(e) {
     if(e.cancelable) e.preventDefault(); 
     e.stopPropagation();
@@ -747,26 +766,30 @@
     ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(last.x + .1, last.y + .1); ctx.stroke();
   }
   function move(e) {
-    if (!drawing) return; 
-    if(e.cancelable) e.preventDefault();
+    if(e.cancelable) e.preventDefault(); // 중요: drawing 상태와 상관없이 무조건 캔버스 위 스크롤 차단
     e.stopPropagation();
+    if (!drawing) return; 
     const p = pos(e);
     ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke();
     last = p;
   }
-  function end() { drawing = false; }
+  function end(e) { 
+    if(e && e.cancelable) e.preventDefault();
+    drawing = false; 
+  }
   
   function bindPad() {
     const c = el.canvas;
-    c.addEventListener("pointerdown", start);
-    c.addEventListener("pointermove", move);
+    c.addEventListener("pointerdown", start, { passive: false });
+    c.addEventListener("pointermove", move, { passive: false });
     window.addEventListener("pointerup", end);
+    
+    // 모바일 터치 전용 이벤트 확실한 할당
     c.addEventListener("touchstart", start, { passive: false });
     c.addEventListener("touchmove", move, { passive: false });
-    c.addEventListener("touchend", end);
-    c.addEventListener("touchcancel", end);
+    c.addEventListener("touchend", end, { passive: false });
+    c.addEventListener("touchcancel", end, { passive: false });
 
-    // 캔버스 주변(.pad)을 터치해서 움직일 때도 스크롤/바운스 효과 방지
     const padContainer = document.querySelector('.pad');
     if (padContainer) {
         padContainer.addEventListener("touchmove", function(e) {
@@ -792,12 +815,7 @@
     qpos = 0;
 
     el.overlay.classList.add("show");
-    
-    // 서명창이 열렸을 때 전체 화면 스크롤링 원천 차단 (흔들림 방지 핵심 요소 2)
-    document.documentElement.style.overflow = "hidden"; // html 태그 스크롤 차단 추가
-    document.body.style.overflow = "hidden";
-    document.body.style.touchAction = "none";
-    document.body.style.overscrollBehavior = "none";
+    lockBodyScroll(); // 바운스 현상 원천 차단 함수 실행
     
     renderStep();
   }
@@ -832,12 +850,7 @@
 
   function closeModal() {
     el.overlay.classList.remove("show");
-    
-    // 모달을 닫을 때 원래대로 복구
-    document.documentElement.style.overflow = "";
-    document.body.style.overflow = "";
-    document.body.style.touchAction = "";
-    document.body.style.overscrollBehavior = "";
+    unlockBodyScroll(); // 차단 해제 및 원래 스크롤 위치 복구
     
     activeIndex = null; pending = null; queue = []; qpos = 0;
   }
@@ -875,7 +888,7 @@
       try {
         await setDoc(doc(db, collPath, String(activeIndex)), pending);
         btn.disabled = false; btn.textContent = lbl;
-        // 로컬 상태 즉시 업데이트 (리스너가 늦더라도 UI 부드럽게)
+        // 로컬 상태 즉시 업데이트
         state[activeIndex] = JSON.parse(JSON.stringify(pending));
         renderRoster();
         advance();
