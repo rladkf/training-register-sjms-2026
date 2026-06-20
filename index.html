@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<!-- 모바일에서 입력/서명 시 화면 확대/축소를 방지합니다 -->
+<!-- 모바일에서 입력/서명 시 화면 확대/축소를 완전히 방지합니다 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>상정중 교직원 연수 전자 등록부_융합정보부(2026.6.22.)</title>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
@@ -43,9 +43,11 @@
     -webkit-text-size-adjust: 100%;
   }
   
-  /* ★★★ 흔들림 방지 1: 모달이 열렸을 때 body 스크롤 방지용 클래스 ★★★ */
+  /* ★★★ 흔들림 방지 1: 모달이 열렸을 때 body의 스크롤 및 브라우저 제스처 완벽 차단 ★★★ */
   body.noscroll {
     overflow: hidden !important;
+    touch-action: none !important; /* 브라우저의 기본 터치, 줌 액션 완전 정지 */
+    -webkit-overflow-scrolling: auto !important;
     overscroll-behavior: none !important;
   }
 
@@ -197,11 +199,13 @@
 
   /* ---------- Modal (공통) ---------- */
   .overlay {
-    position: fixed; inset: 0; background: rgba(20,28,42,.5); backdrop-filter: blur(3px);
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(20,28,42,.5); backdrop-filter: blur(3px);
     display: none; align-items: flex-end; justify-content: center; z-index: 50; padding: 0;
-    /* 서명창(overlay) 자체의 스크롤, 바운스 원천 차단 */
     touch-action: none !important;
     overscroll-behavior: none !important;
+    height: 100%;
+    height: 100dvh; /* 브라우저 툴바 숨김/나타남에 따른 리사이징 튐 방지 */
   }
   .overlay.show { display: flex; }
   @media (min-width: 560px) { .overlay { align-items: center; padding: 20px; } }
@@ -245,12 +249,12 @@
   .modal-head .who-name { font-size: 14px; color: var(--ink-soft); margin-top: 4px; font-weight: 600; }
   .pad-wrap { padding: 12px 22px 4px; }
   
-  /* ★★★ 흔들림 방지 2: 서명 패드 CSS 강력 적용 ★★★ */
+  /* ★★★ 흔들림 방지 2: 서명 패드 CSS 완벽 고정 ★★★ */
   .pad {
     position: relative; border: 1.5px dashed var(--line); border-radius: 12px;
     background: #fffdf8; overflow: hidden;
-    touch-action: none !important;          /* 브라우저 기본 제스처(스크롤/확대) 100% 차단 */
-    overscroll-behavior: none !important;   /* 바운스 차단 */
+    touch-action: none !important;          
+    overscroll-behavior: none !important;   
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     user-select: none;
@@ -396,8 +400,8 @@
 <div class="wrap">
   <div class="doc">
     <div class="masthead">
-      <p class="eyebrow">2026학년도 인천상정중학교</p>
-      <h1>교직원 연수 전자 등록부_융합정보부</h1>
+      <p class="eyebrow">2026학년도 인천상정중 융합정보부</p>
+      <h1>교직원 연수 전자 등록부</h1>
       <div class="courses">
         <div class="c"><span class="tag">연수 1</span><span>개인정보보호 및 정보보안 교육</span></div>
         <div class="c"><span class="tag">연수 2</span><span>인터넷·스마트폰 과의존 예방교육</span></div>
@@ -651,10 +655,10 @@
   document.querySelectorAll(".total0").forEach(n => n.textContent = ROSTER.length);
   document.querySelectorAll(".total1").forEach(n => n.textContent = ROSTER.length);
 
-  /* ★★★ 흔들림 방지 3: 모달 서명창 전용 완벽한 터치 차단 이벤트 (스크롤 무력화) ★★★ */
-  el.overlay.addEventListener('touchmove', function(e) {
+  /* ★★★ 흔들림 방지 전역 함수 (모달이 켜져있을 때 window 전체의 스크롤을 마비시킵니다) ★★★ */
+  function preventGlobalScroll(e) {
     if (e.cancelable) e.preventDefault();
-  }, { passive: false });
+  }
 
   function setSync(ok, msg) {
     el.syncDot.classList.toggle("off", !ok);
@@ -756,16 +760,15 @@
     return { x: cx - rect.left, y: cy - rect.top };
   }
   
-  /* ★★★ 흔들림 방지 4: 캔버스 터치 이벤트에 최우선적으로 preventDefault 발동 ★★★ */
   function start(e) {
-    if(e.cancelable) e.preventDefault(); // 중요!
+    if(e.cancelable) e.preventDefault(); // 스크롤(터치 바운스) 원천 차단
     drawing = true; dirty = true;
     el.placeholder.style.display = "none";
     last = pos(e);
     ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(last.x + .1, last.y + .1); ctx.stroke();
   }
   function move(e) {
-    if(e.cancelable) e.preventDefault(); // 스크롤(패닝) 원천 차단
+    if(e.cancelable) e.preventDefault(); // 패닝/스크롤 차단
     if (!drawing) return; 
     const p = pos(e);
     ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke();
@@ -778,16 +781,17 @@
   
   function bindPad() {
     const c = el.canvas;
-    // 마우스 이벤트
+    
+    // 마우스 이벤트 바인딩
     c.addEventListener("mousedown", start);
     c.addEventListener("mousemove", move);
     window.addEventListener("mouseup", end);
     
-    // 모바일 터치 이벤트 (passive: false를 주어 확실히 막음)
+    // 모바일 터치 이벤트 바인딩 (passive: false로 브라우저 개입 완전 차단)
     c.addEventListener("touchstart", start, { passive: false });
     c.addEventListener("touchmove", move, { passive: false });
-    c.addEventListener("touchend", end, { passive: false });
-    c.addEventListener("touchcancel", end, { passive: false });
+    window.addEventListener("touchend", end, { passive: false });
+    window.addEventListener("touchcancel", end, { passive: false });
   }
 
   /* ---------- 서명 모달 (아직 안 한 연수만) ---------- */
@@ -808,8 +812,9 @@
 
     el.overlay.classList.add("show");
     
-    // 모달이 열렸을 때 body 스크롤 금지 클래스 부여
+    // ★★★ 스크롤 차단 발동: body에 noscroll 클래스 부여 및 전역 터치 이벤트 무력화 ★★★
     document.body.classList.add("noscroll");
+    window.addEventListener('touchmove', preventGlobalScroll, { passive: false });
     
     renderStep();
   }
@@ -845,8 +850,9 @@
   function closeModal() {
     el.overlay.classList.remove("show");
     
-    // 모달을 닫을 때 body 스크롤 다시 허용
+    // 모달을 닫을 때 정상 상태로 복구
     document.body.classList.remove("noscroll");
+    window.removeEventListener('touchmove', preventGlobalScroll);
     
     activeIndex = null; pending = null; queue = []; qpos = 0;
   }
