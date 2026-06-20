@@ -203,7 +203,6 @@
   .dot.off { background: var(--danger); }
 
   /* ---------- Modal (공통) ---------- */
-  /* ★ 흔들림 완벽 방지: display: flex 레이아웃을 버리고 block과 absolute로 모달을 강제 고정합니다. */
   .overlay {
     position: fixed; top: 0; left: 0; right: 0; bottom: 0;
     background: rgba(20,28,42,.5); backdrop-filter: blur(3px);
@@ -258,6 +257,7 @@
   .pad canvas { 
     display: block; width: 100%; height: 200px; 
     touch-action: none; 
+    overscroll-behavior: none; /* 추가: 당겨서 새로고침 차단 */
     cursor: crosshair; 
     outline: none;
   }
@@ -646,6 +646,13 @@
     sdot0: document.getElementById("sdot0"), sdot1: document.getElementById("sdot1")
   };
 
+  /* ★ 모달 배경 터치 시 화면 전체 스크롤 방지 추가 */
+  document.querySelectorAll('.overlay').forEach(ov => {
+    ov.addEventListener('touchmove', function(e) {
+      if (e.cancelable) e.preventDefault();
+    }, { passive: false });
+  });
+
   document.querySelectorAll(".total0").forEach(n => n.textContent = ROSTER.length);
   document.querySelectorAll(".total1").forEach(n => n.textContent = ROSTER.length);
 
@@ -766,9 +773,10 @@
     return { x: cx - rect.left, y: cy - rect.top };
   }
   
-  /* ★ 서명 시에만 브라우저 스크롤을 무효화하는 가장 안전하고 정석적인 코드 */
+  /* ★ 서명 시에만 브라우저 스크롤을 완벽하게 무효화하는 코드 추가 ★ */
   function start(e) {
-    e.preventDefault(); 
+    if (e.cancelable) e.preventDefault(); 
+    e.stopPropagation();
     drawing = true; dirty = true;
     el.placeholder.style.opacity = "0"; 
     
@@ -777,7 +785,8 @@
   }
   
   function move(e) {
-    e.preventDefault(); 
+    if (e.cancelable) e.preventDefault(); 
+    e.stopPropagation();
     if (!drawing) return; 
     const p = pos(e);
     ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke();
@@ -785,6 +794,8 @@
   }
   
   function end(e) { 
+    if (e.cancelable) e.preventDefault();
+    e.stopPropagation();
     drawing = false; 
   }
   
