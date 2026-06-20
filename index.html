@@ -220,6 +220,7 @@
     overflow: hidden; 
     display: flex; flex-direction: column; max-height: 90%; 
     animation: modalFadeIn .15s ease-out;
+    touch-action: none; /* ★ 모달 전체의 기본 터치 제스처 원천 차단 */
   }
   @media (min-width: 560px) { .modal { border-radius: 18px; } }
   @keyframes modalFadeIn { 
@@ -296,7 +297,7 @@
   .duty-head .dt { font-size: 18px; font-weight: 800; }
   .duty-head .ds { font-size: 12.5px; color: var(--ink-soft); margin-top: 4px; line-height: 1.5; }
   .duty-filter { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 12.5px; color: var(--ink-soft); cursor: pointer; }
-  .duty-list { overflow: auto; padding: 6px 18px; flex: 1; -webkit-overflow-scrolling: touch; }
+  .duty-list { overflow: auto; padding: 6px 18px; flex: 1; -webkit-overflow-scrolling: touch; touch-action: pan-y; /* ★ 복무 상황 목록은 상하 스크롤 허용 */ }
   .duty-row {
     display: grid; grid-template-columns: 1fr minmax(150px, 210px); gap: 10px; align-items: center;
     padding: 10px 4px; border-bottom: 1px solid var(--line-soft);
@@ -650,14 +651,22 @@
     sdot0: document.getElementById("sdot0"), sdot1: document.getElementById("sdot1")
   };
 
-  /* ★ 문서 전체 스크롤 방지를 위해 body가 아닌 html 클래스 추가 조작 */
+  /* ★ 전역 스크롤 방지 함수: 터치 시작 시점의 들썩임(Rubber-banding)을 최상위에서 완벽 차단 */
+  function preventGlobalScroll(e) {
+    if (e.target.closest('.duty-list')) return; // 스크롤이 필요한 목록 영역은 예외 처리
+    if (e.cancelable) e.preventDefault();
+  }
+
+  /* ★ 문서 전체 스크롤 방지를 위해 body가 아닌 html 클래스 추가 조작 및 전역 이벤트 연결 */
   function setModalState(isOpen) {
     if (isOpen) {
         document.documentElement.classList.add("modal-open");
         document.body.classList.add("modal-open");
+        window.addEventListener('touchmove', preventGlobalScroll, { passive: false });
     } else {
         document.documentElement.classList.remove("modal-open");
         document.body.classList.remove("modal-open");
+        window.removeEventListener('touchmove', preventGlobalScroll);
     }
   }
 
@@ -790,6 +799,7 @@
   
   /* ★ 터치 이벤트 시 preventDefault를 강제 호출하여 화면 움직임을 원천 차단 */
   function start(e) {
+    e.stopPropagation(); // ★ 이벤트 전파 완전 차단 (부모 요소로 터치 이벤트가 넘어가는 것을 막음)
     if (e.cancelable) e.preventDefault(); 
     drawing = true; dirty = true;
     el.placeholder.style.opacity = "0"; 
@@ -799,6 +809,7 @@
   }
   
   function move(e) {
+    e.stopPropagation(); // ★ 이벤트 전파 완전 차단
     if (e.cancelable) e.preventDefault(); 
     if (!drawing) return; 
     const p = pos(e);
