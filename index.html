@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<!-- 모바일에서 입력/서명 시 화면이 강제로 확대되는 것을 방지합니다 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>교직원 연수 통합 전자 등록부</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+  :root {
+    --paper: #fbfaf6;
+    --ink: #1a2233;
+    --ink-soft: #4a5568;
+    --line: #d9d4c7;
+    --line-soft: #ece8dd;
+    --navy: #1f3a5f;
+    --navy-deep: #14283f;
+    --gold: #b08d3a;
+    --done: #1f7a52;
+    --done-bg: #e9f4ee;
+    --pending-bg: #f3f0e7;
+    --duty-bg: #fbeede;
+    --duty-ink: #9a6a16;
+    --danger: #a23a2e;
+    --shadow: 0 1px 2px rgba(20,40,63,.06), 0 8px 24px rgba(20,40,63,.07);
+    --radius: 14px;
+    font-synthesis-weight: none;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(1200px 500px at 50% -200px, #fff 0%, var(--paper) 60%),
+      var(--paper);
+    color: var(--ink);
+    font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+      "Malgun Gothic", system-ui, sans-serif;
+    line-height: 1.55;
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap { max-width: 820px; margin: 0 auto; padding: 20px 14px 70px; }
+
+  /* ---------- Header / official masthead ---------- */
+  .doc {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .masthead {
+    background: linear-gradient(160deg, var(--navy) 0%, var(--navy-deep) 100%);
+    color: #f4f1e8;
+    padding: 22px 20px 20px;
+    position: relative;
+  }
+  .masthead::after {
+    content: "";
+    position: absolute; left: 0; right: 0; bottom: 0; height: 4px;
+    background: linear-gradient(90deg, var(--gold) 0%, #d8b964 50%, var(--gold) 100%);
+  }
+  .eyebrow {
+    font-size: 12px; letter-spacing: .2em; font-weight: 600;
+    color: #cdd8e6; margin: 0 0 8px;
+  }
+  .masthead h1 {
+    margin: 0; font-size: clamp(19px, 5.4vw, 25px); font-weight: 800;
+    letter-spacing: -.01em; line-height: 1.3;
+  }
+  .masthead .courses { margin: 12px 0 0; display: flex; flex-direction: column; gap: 6px; }
+  .masthead .courses .c {
+    font-size: 13px; color: #eef2f7; font-weight: 600;
+    display: flex; align-items: flex-start; gap: 8px;
+  }
+  .masthead .courses .c .tag {
+    font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 99px;
+    background: rgba(255,255,255,.16); white-space: nowrap; margin-top: 1px;
+  }
+  .masthead .sub { margin: 12px 0 0; font-size: 13px; color: #d7e0ec; font-weight: 500; }
+  .masthead .sub .warn { display: block; margin-top: 2px; color: #f3d9b5; font-weight: 600; }
+
+  .meta {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+    border-top: 1px solid var(--line-soft);
+  }
+  .meta div {
+    padding: 12px 16px; border-bottom: 1px solid var(--line-soft);
+    font-size: 14px;
+  }
+  .meta div:nth-child(odd) { border-right: 1px solid var(--line-soft); }
+  .meta .k { color: var(--ink-soft); font-size: 11.5px; letter-spacing: .04em; margin-bottom: 2px; }
+  .meta .v { font-weight: 700; color: var(--ink); }
+  @media (max-width: 460px) {
+    .meta { grid-template-columns: 1fr; }
+    .meta div:nth-child(odd) { border-right: none; }
+  }
+
+  /* ---------- Progress ---------- */
+  .progress { padding: 16px 16px 4px; }
+  .pgrow { margin-bottom: 13px; }
+  .pgrow:last-child { margin-bottom: 4px; }
+  .progress-row { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 7px; gap: 8px; }
+  .progress-row strong { font-size: 13.5px; }
+  .progress-row .count { font-size: 13px; color: var(--ink-soft); white-space: nowrap; }
+  .progress-row .count b { color: var(--navy); font-size: 17px; font-weight: 800; }
+  .bar { height: 9px; background: var(--line-soft); border-radius: 99px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; width: 0;
+    background: linear-gradient(90deg, var(--done) 0%, #2fa06c 100%);
+    border-radius: 99px; transition: width .5s cubic-bezier(.2,.7,.2,1); }
+
+  /* ---------- Search ---------- */
+  .tools { padding: 4px 16px 14px; display: flex; gap: 10px; align-items: center; }
+  .search {
+    flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0;
+    background: #fff; border: 1.5px solid var(--line); border-radius: 11px;
+    padding: 10px 13px;
+  }
+  .search:focus-within { border-color: var(--navy); box-shadow: 0 0 0 3px rgba(31,58,95,.12); }
+  .search input { border: 0; outline: 0; font: inherit; width: 100%; background: transparent; color: var(--ink); }
+  .search svg { flex: none; opacity: .5; }
+
+  /* ---------- Roster ---------- */
+  .list { padding: 0 16px 16px; }
+  .row {
+    display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 10px;
+    padding: 12px 4px; border-bottom: 1px solid var(--line-soft);
+  }
+  .row:last-child { border-bottom: 0; }
+  .no { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--ink-soft); text-align: center; font-weight: 600; }
+  .who { min-width: 0; }
+  .who .name { font-weight: 700; font-size: 16px; letter-spacing: -.01em; }
+  .who .pos { font-size: 12px; color: var(--ink-soft); }
+  .who .stat { display: flex; gap: 5px; margin-top: 4px; flex-wrap: wrap; }
+  .who .chip {
+    font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px;
+    background: var(--pending-bg); color: var(--ink-soft); white-space: nowrap;
+  }
+  .who .chip.ok { background: var(--done-bg); color: var(--done); }
+  .who .chip.duty { background: var(--duty-bg); color: var(--duty-ink); }
+  .row.hidden { display: none; }
+
+  .btn {
+    font: inherit; font-weight: 700; font-size: 14px; cursor: pointer;
+    border: 0; border-radius: 10px; padding: 9px 15px; white-space: nowrap;
+    background: var(--navy); color: #fff; transition: transform .08s, background .15s;
+  }
+  .btn:hover { background: var(--navy-deep); }
+  .btn:active { transform: scale(.97); }
+  .btn.ghost { background: #fff; color: var(--navy); border: 1.5px solid var(--line); }
+  .btn.ghost:hover { border-color: var(--navy); }
+  .btn.small { padding: 7px 12px; font-size: 13px; }
+  .btn:disabled { opacity: .5; cursor: default; transform: none; }
+  .btn.full { background: var(--done); }
+  .btn.full:hover { background: #166544; }
+
+  .empty { text-align: center; color: var(--ink-soft); padding: 28px 10px; font-size: 14px; }
+
+  /* ---------- Organizer panel ---------- */
+  details.admin {
+    margin-top: 16px; background: #fff; border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden;
+  }
+  details.admin > summary {
+    cursor: pointer; list-style: none; padding: 16px 18px; font-weight: 700; font-size: 15px;
+    display: flex; align-items: center; justify-content: space-between; color: var(--ink);
+  }
+  details.admin > summary::-webkit-details-marker { display: none; }
+  details.admin > summary .chev { transition: transform .2s; opacity: .5; }
+  details.admin[open] > summary .chev { transform: rotate(180deg); }
+  .admin-body { padding: 0 18px 18px; border-top: 1px solid var(--line-soft); }
+  .admin-sec { padding-top: 16px; }
+  .admin-sec .lbl { font-size: 12.5px; font-weight: 700; color: var(--ink-soft); margin-bottom: 8px; }
+  .admin-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+  .hint { font-size: 12.5px; color: var(--ink-soft); margin: 14px 0 0; line-height: 1.6; }
+
+  .note {
+    margin-top: 14px; font-size: 12.5px; color: var(--ink-soft);
+    text-align: center; line-height: 1.6;
+  }
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 12px;
+    color: var(--ink-soft); margin-left: auto; font-weight: 500; white-space: nowrap;
+  }
+  .dot { width: 7px; height: 7px; border-radius: 99px; background: var(--done); }
+  .dot.off { background: var(--danger); }
+
+  /* ---------- Modal (공통) ---------- */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(20,28,42,.5); backdrop-filter: blur(3px);
+    display: none; align-items: flex-end; justify-content: center; z-index: 50; padding: 0;
+  }
+  .overlay.show { display: flex; }
+  @media (min-width: 560px) { .overlay { align-items: center; padding: 20px; } }
+  .modal {
+    position: relative; background: #fff; width: 100%; max-width: 540px;
+    border-radius: 18px 18px 0 0; box-shadow: 0 -10px 40px rgba(0,0,0,.25);
+    overflow: hidden; animation: rise .28s cubic-bezier(.2,.8,.2,1);
+    display: flex; flex-direction: column; max-height: 92vh;
+  }
+  @media (min-width: 560px) { .modal { border-radius: 18px; } }
+  @keyframes rise { from { transform: translateY(24px); opacity: .6; } to { transform: none; opacity: 1; } }
+
+  .modal-close {
+    position: absolute; top: 12px; right: 12px; z-index: 2;
+    width: 34px; height: 34px; border-radius: 99px; border: 0; cursor: pointer;
+    background: #f0ece3; color: var(--ink-soft); font-size: 16px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .modal-close:hover { background: #e6e0d3; }
+
+  .stepper { display: flex; gap: 8px; padding: 16px 22px 0; }
+  .stepper .sdot { flex: 1; height: 6px; border-radius: 99px; background: var(--line-soft); }
+  .stepper .sdot.active { background: var(--navy); }
+  .stepper .sdot.done { background: var(--done); }
+
+  .modal-head { padding: 12px 22px 6px; }
+  .modal-head .stepname {
+    font-size: 12px; font-weight: 800; letter-spacing: .03em; color: var(--gold); margin-bottom: 4px;
+  }
+  .modal-head .course-title { font-size: 17px; font-weight: 800; line-height: 1.3; padding-right: 28px; }
+  .modal-head .who-name { font-size: 14px; color: var(--ink-soft); margin-top: 4px; font-weight: 600; }
+  .pad-wrap { padding: 12px 22px 4px; }
+  .pad {
+    position: relative; border: 1.5px dashed var(--line); border-radius: 12px;
+    background: #fffdf8; overflow: hidden;
+  }
+  .pad canvas { display: block; width: 100%; height: 200px; touch-action: none; cursor: crosshair; }
+  .pad .placeholder {
+    position: absolute; left: 10px; right: 10px; bottom: 16px; text-align: center;
+    font-size: 12.5px; color: #b9b2a0; pointer-events: none; line-height: 1.4;
+  }
+  .modal-actions { display: flex; gap: 10px; padding: 12px 22px 22px; }
+  .modal-actions .btn { flex: 1; padding: 13px; }
+  .modal-actions .clear { flex: none; }
+
+  /* ---------- 출력 형식 선택 모달 ---------- */
+  .chooser-head { padding: 20px 22px 4px; }
+  .chooser-head .ct { font-size: 18px; font-weight: 800; }
+  .chooser-head .cs { font-size: 13px; color: var(--ink-soft); margin-top: 4px; }
+  .chooser-list { padding: 14px 22px 6px; display: flex; flex-direction: column; gap: 10px; }
+  .choice {
+    text-align: left; cursor: pointer; border: 1.5px solid var(--line); background: #fff;
+    border-radius: 12px; padding: 14px 16px; font: inherit; transition: border-color .15s, background .15s;
+  }
+  .choice:hover { border-color: var(--navy); background: #f7f9fc; }
+  .choice .cl { font-size: 15px; font-weight: 800; color: var(--ink); }
+  .choice .cd { font-size: 12.5px; color: var(--ink-soft); margin-top: 3px; }
+  .choice.combined .cl { color: var(--done); }
+  .chooser-foot { padding: 6px 22px 20px; }
+  .chooser-foot .btn { width: 100%; }
+
+  /* ---------- 복무 상황 입력 모달 ---------- */
+  .duty-head { padding: 20px 22px 8px; }
+  .duty-head .dt { font-size: 18px; font-weight: 800; }
+  .duty-head .ds { font-size: 12.5px; color: var(--ink-soft); margin-top: 4px; line-height: 1.5; }
+  .duty-filter { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 12.5px; color: var(--ink-soft); cursor: pointer; }
+  .duty-list { overflow: auto; padding: 6px 18px; flex: 1; -webkit-overflow-scrolling: touch; }
+  .duty-row {
+    display: grid; grid-template-columns: 1fr minmax(150px, 210px); gap: 10px; align-items: center;
+    padding: 10px 4px; border-bottom: 1px solid var(--line-soft);
+  }
+  .duty-row .dwho b { font-size: 14.5px; font-weight: 700; }
+  .duty-row .dwho span { font-size: 12px; color: var(--ink-soft); margin-left: 6px; }
+  .duty-row .dstat { display: flex; gap: 5px; margin-top: 4px; flex-wrap: wrap; }
+  .duty-row .dstat .chip { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 99px; background: var(--pending-bg); color: var(--ink-soft); }
+  .duty-row .dstat .chip.ok { background: var(--done-bg); color: var(--done); }
+  .duty-row .dctrl { display: flex; flex-direction: column; gap: 6px; }
+  .duty-row select, .duty-row .duty-other {
+    font: inherit; font-size: 13px; padding: 9px 10px;
+    border: 1.5px solid var(--line); border-radius: 9px; outline: none; background: #fff; width: 100%;
+  }
+  .duty-row select:focus, .duty-row .duty-other:focus { border-color: var(--navy); }
+  @media (max-width: 460px) {
+    .duty-row { grid-template-columns: 1fr; gap: 8px; }
+  }
+  .duty-foot { display: flex; gap: 10px; padding: 14px 22px 22px; border-top: 1px solid var(--line-soft); }
+  .duty-foot .btn { flex: 1; padding: 13px; }
+
+  /* ---------- Gallery ---------- */
+  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px,1fr)); gap: 10px; margin-top: 14px; }
+  .gcard { border: 1px solid var(--line-soft); border-radius: 10px; padding: 8px; background: #fffdf8; }
+  .gcard .gn { font-size: 12.5px; font-weight: 800; text-align: center; margin-bottom: 6px; }
+  .gcard .gsig { display: flex; gap: 6px; }
+  .gcard .gsig .gs { flex: 1; text-align: center; }
+  .gcard .gsig .gs span { font-size: 9.5px; color: var(--ink-soft); display: block; }
+  .gcard .gsig img { width: 100%; height: 40px; object-fit: contain; border: 1px solid var(--line-soft); border-radius: 6px; background:#fff; }
+  .gcard .gsig .none { font-size: 10px; color: #c0b9a8; height: 40px; display:flex; align-items:center; justify-content:center; border:1px dashed var(--line); border-radius:6px; }
+
+  /* ---------- Reset password gate ---------- */
+  .gate {
+    display: none; margin-top: 14px; padding: 14px;
+    border: 1.5px solid #e3c9c4; background: #fcf4f2; border-radius: 11px;
+  }
+  .gate.show { display: block; }
+  .gate p { margin: 0 0 10px; font-size: 13px; color: var(--danger); font-weight: 600; }
+  .gate-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .gate input {
+    flex: 1; min-width: 120px; font: inherit; padding: 9px 12px;
+    border: 1.5px solid var(--line); border-radius: 9px; outline: none;
+  }
+  .gate input:focus { border-color: var(--danger); }
+  .gate .err { display: none; margin: 8px 0 0; font-size: 12.5px; color: var(--danger); }
+  .gate .err.show { display: block; }
+  .gate .ok-msg { display: none; margin: 8px 0 0; font-size: 12.5px; color: var(--done); font-weight: 600; }
+  .gate .ok-msg.show { display: block; }
+
+  /* ---------- Modal inline hint ---------- */
+  .modal-hint {
+    display: none; padding: 0 22px; margin: 4px 0 -4px;
+    font-size: 12.5px; color: var(--danger); font-weight: 600;
+  }
+  .modal-hint.show { display: block; animation: shake .3s; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
+
+  /* ---------- Off-screen PDF render holder ---------- */
+  #pdfHolder {
+    position: fixed; left: -10000px; top: 0; width: 794px;
+    background: #fff; color: #111; padding: 22px;
+    font-family: "Pretendard", sans-serif;
+  }
+  #pdfHolder h2 { text-align: center; font-size: 21px; margin: 0 0 5px; line-height:1.3; font-weight: 800; }
+  #pdfHolder h2.combined { font-size: 16px; white-space: nowrap; }
+  #pdfHolder .psub { text-align: center; font-size: 13px; margin: 0 0 11px; color: #333; }
+  #pdfHolder table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  #pdfHolder th, #pdfHolder td { border: 1px solid #333; padding: 3px 6px; font-size: 13.5px; }
+  #pdfHolder th { background: #eee; font-size: 12.5px; }
+  #pdfHolder table.combined-table th, #pdfHolder table.combined-table td { font-size: 12px; padding: 3px 4px; }
+  #pdfHolder table.combined-table th { font-size: 11px; }
+  #pdfHolder .sig-cell { height: 30px; text-align: center; }
+  #pdfHolder .sig-cell img { max-width: 100%; height: 27px; object-fit: contain; }
+  #pdfHolder .duty { font-size: 12.5px; font-weight: 700; color: #1a1a1a; }
+  #pdfHolder .gap, #pdfHolder th.gap { border: 0; background: transparent; padding: 0; }
+
+  /* ---------- Print layout (fallback) ---------- */
+  .print-only { display: none; }
+  @media print {
+    body { background: #fff; }
+    .wrap, .doc, details.admin, .note, .overlay { display: none !important; }
+    .print-only { display: block; }
+    @page { size: A4; margin: 11mm; }
+  }
+  .print-only h2 { text-align: center; font-size: 17px; margin: 0 0 4px; line-height:1.3; }
+  .print-only h2.combined { font-size: 13.5px; white-space: nowrap; }
+  .print-only .psub { text-align: center; font-size: 12px; margin: 0 0 12px; }
+  .print-only table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .print-only th, .print-only td { border: 1px solid #333; padding: 4px 5px; font-size: 12px; }
+  .print-only th { background: #eee; }
+  .print-only table.combined-table th, .print-only table.combined-table td { font-size: 10.5px; padding: 3px 4px; }
+  .print-only .sig-cell { height: 34px; text-align: center; }
+  .print-only .sig-cell img { max-width: 100%; height: 30px; object-fit: contain; }
+  .print-only .duty { font-size: 11px; font-weight: 700; color: #1a1a1a; }
+  .print-only .gap, .print-only th.gap { border: 0; background: transparent; padding: 0; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="doc">
+    <div class="masthead">
+      <p class="eyebrow">인천상정중학교 교직원 연수</p>
+      <h1>교직원 연수 통합 전자 등록부</h1>
+      <div class="courses">
+        <div class="c"><span class="tag">연수 1</span><span>개인정보보호 및 정보보안 교육</span></div>
+        <div class="c"><span class="tag">연수 2</span><span>인터넷·스마트폰 과의존 예방교육</span></div>
+      </div>
+      <p class="sub">본인 이름을 찾아 <b>두 연수에 차례로 서명</b>해 주세요.
+        <span class="warn">(해당 연수일시에 복무 변동이 있을 시 서명하지 않습니다.)</span>
+      </p>
+    </div>
+    <div class="meta">
+      <div><div class="k">학교명</div><div class="v">인천상정중학교</div></div>
+      <div><div class="k">대상</div><div class="v">교직원</div></div>
+      <div><div class="k">연수일자</div><div class="v">2026. 6. 22.(월)</div></div>
+      <div><div class="k">연수시간</div><div class="v">15:30 ~ 16:30</div></div>
+    </div>
+
+    <div class="progress">
+      <div class="pgrow">
+        <div class="progress-row">
+          <strong>연수 1 · 개인정보보호 및 정보보안</strong>
+          <span class="count"><b id="done0">0</b> / <span class="total0">0</span>명</span>
+        </div>
+        <div class="bar"><i id="bar0"></i></div>
+      </div>
+      <div class="pgrow">
+        <div class="progress-row">
+          <strong>연수 2 · 인터넷·스마트폰 과의존 예방</strong>
+          <span class="count"><b id="done1">0</b> / <span class="total1">0</span>명</span>
+        </div>
+        <div class="bar"><i id="bar1"></i></div>
+      </div>
+    </div>
+
+    <div class="tools">
+      <label class="search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input id="searchInput" type="text" placeholder="이름으로 빠르게 찾기" autocomplete="off" />
+      </label>
+      <span class="status-pill"><span class="dot off" id="syncDot"></span><span id="syncText">연결 중...</span></span>
+    </div>
+
+    <div class="list" id="rosterList"></div>
+  </div>
+
+  <details class="admin">
+    <summary>관리자 메뉴 (출력·관리) <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></summary>
+    <div class="admin-body">
+
+      <div class="admin-sec">
+        <div class="lbl">📄 등록부 출력</div>
+        <div class="admin-actions">
+          <button class="btn small" id="printBtn">인쇄 / PDF 저장</button>
+        </div>
+        <div id="pdfLink" style="margin-top:12px"></div>
+      </div>
+
+      <div class="admin-sec">
+        <div class="lbl">🛠 관리</div>
+        <div class="admin-actions">
+          <button class="btn small ghost" id="viewBtn">서명 모아보기</button>
+          <button class="btn small ghost" id="resetBtn" style="color:var(--danger);border-color:#e3c9c4">전체 서명 초기화</button>
+        </div>
+      </div>
+
+      <div class="gate" id="resetGate">
+        <p>🔒 관리자 전용 · 전체 서명을 삭제하려면 비밀번호를 입력하세요. 삭제 후에는 되돌릴 수 없습니다.</p>
+        <div class="gate-row">
+          <input id="gatePw" type="password" inputmode="numeric" placeholder="비밀번호" autocomplete="off" />
+          <button class="btn small" id="gateConfirm" style="background:var(--danger)">초기화 실행</button>
+          <button class="btn small ghost" id="gateCancel">취소</button>
+        </div>
+        <p class="err" id="gateErr">비밀번호가 올바르지 않습니다.</p>
+        <p class="ok-msg" id="gateOk"></p>
+      </div>
+
+      <div id="gallery"></div>
+      <p class="hint">
+        • 이 페이지 링크를 교직원에게 공유하면 각자 기기(휴대폰 포함)에서 두 연수에 서명할 수 있습니다.<br>
+        • 이름을 누르면 <b>아직 서명하지 않은 연수만</b> 차례로 나타납니다.<br>
+        • <b>인쇄 / PDF 저장</b>을 누르면 먼저 <b>복무 상황(출장·연가 등)</b>을 입력한 뒤 출력 형식을 선택합니다.
+      </p>
+    </div>
+  </details>
+
+  <p class="note">© 2026 인천상정중 / 관련 문의: 융합정보부 교사 김아름(010-6349-7995)</p>
+</div>
+
+<!-- 서명 모달 (아직 안 한 연수만 순서대로) -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <button class="modal-close" id="sigClose" aria-label="닫기">✕</button>
+    <div class="stepper">
+      <div class="sdot" id="sdot0"></div>
+      <div class="sdot" id="sdot1"></div>
+    </div>
+    <div class="modal-head">
+      <div class="stepname" id="stepName">연수 1 / 2</div>
+      <div class="course-title" id="courseTitle">연수명</div>
+      <div class="who-name" id="modalName">이름</div>
+    </div>
+    <div class="pad-wrap">
+      <div class="pad">
+        <canvas id="pad"></canvas>
+        <div class="placeholder" id="placeholder">여기에 서명</div>
+      </div>
+    </div>
+    <div class="modal-hint" id="modalHint">서명을 먼저 작성해 주세요.</div>
+    <div class="modal-actions">
+      <button class="btn ghost clear" id="clearBtn">지우기</button>
+      <button class="btn ghost clear" id="skipBtn">건너뛰기</button>
+      <button class="btn" id="saveBtn">저장하고 다음 ▶</button>
+    </div>
+  </div>
+</div>
+
+<!-- 복무 상황 입력 모달 -->
+<div class="overlay" id="dutyOverlay">
+  <div class="modal">
+    <div class="duty-head">
+      <div class="dt">복무 상황 입력</div>
+      <div class="ds">연수에 참여하지 못한 교직원의 사유를 선택하면, 등록부 서명란에 사유가 기재됩니다.<br>(기타 선택 시 사유를 입력하면 「기타(내용)」 형식으로 기재됩니다.)</div>
+      <label class="duty-filter"><input type="checkbox" id="dutyOnlyUnsigned" checked> 미서명자만 표시</label>
+    </div>
+    <div class="duty-list" id="dutyList"></div>
+    <div class="duty-foot">
+      <button class="btn ghost" id="dutyClose">닫기</button>
+      <button class="btn" id="dutyNext">출력 형식 선택 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- 출력 형식 선택 모달 -->
+<div class="overlay" id="chooser">
+  <div class="modal">
+    <div class="chooser-head">
+      <div class="ct">출력 형식 선택</div>
+      <div class="cs">어떤 형식으로 인쇄 / PDF 저장할까요?</div>
+    </div>
+    <div class="chooser-list">
+      <button class="choice" id="ch0">
+        <div class="cl">연수 1 등록부 (1장)</div>
+        <div class="cd">개인정보보호 및 정보보안 교육</div>
+      </button>
+      <button class="choice" id="ch1">
+        <div class="cl">연수 2 등록부 (1장)</div>
+        <div class="cd">인터넷·스마트폰 과의존 예방교육</div>
+      </button>
+      <button class="choice combined" id="chBoth">
+        <div class="cl">두 연수 합본 (1장)</div>
+        <div class="cd">두 연수명 병기 · 서명(연수1)·서명(연수2) 두 칸 모두 표시</div>
+      </button>
+    </div>
+    <div class="chooser-foot">
+      <button class="btn ghost" id="chCancel">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- Printable register (native print fallback) -->
+<div class="print-only" id="printArea"></div>
+
+<!-- Off-screen holder used to render the register into a downloadable PDF -->
+<div id="pdfHolder" aria-hidden="true"></div>
+
+<!-- 최신 Firebase Firestore V11 모듈 스크립트 적용 -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+  import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+  import { getFirestore, doc, setDoc, deleteDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+  /* ============================================================
+     ▼▼▼ 선생님의 GitHub 배포 시 필수로 수정해야 할 부분 ▼▼▼
+     선생님의 Firebase 프로젝트 콘솔에서 앱을 등록하고 받은
+     아래 설정값들을 꼭 입력해 주세요!
+     ============================================================ */
+  let firebaseConfig, appId, collPath;
+
+  if (typeof __firebase_config !== 'undefined') {
+      // 캔버스 자체 미리보기용 설정 (건드리지 마세요)
+      firebaseConfig = JSON.parse(__firebase_config);
+      appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+      collPath = `artifacts/${appId}/public/data/registrations`;
+  } else {
+      // ★ 여기에 선생님의 Firebase 설정값을 따옴표 안에 채워넣으세요 ★
+      firebaseConfig = {
+  	apiKey: "AIzaSyAZeXVqkfNH6CpQ2C5iTfItrYD2WBywcoM",
+ 	authDomain: "training-attendance-register.firebaseapp.com",
+ 	databaseURL: "https://training-attendance-register-default-rtdb.firebaseio.com",
+ 	projectId: "training-attendance-register",
+  	storageBucket: "training-attendance-register.firebasestorage.app",
+  	messagingSenderId: "819284762894",
+  	appId: "1:819284762894:web:ce0f4a4e1592d7a1c4b75f",
+  	measurementId: "G-4HX23HMJN5"
+  };
+      // 사용할 데이터베이스 폴더 이름입니다. 연도/학기 등에 따라 바꿔 쓰셔도 됩니다.
+      collPath = `registrations_2026`;
+  }
+  /* ▲▲▲ Firebase 설정 끝 ▲▲▲ */
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  /* ===== 연수 정의 및 교직원 명단 ===== */
+  const TRAININGS = [
+    { name: "개인정보보호 및 정보보안 교육",   shortName: "개인정보보호·정보보안", fileTag: "개인정보보호정보보안교육" },
+    { name: "인터넷·스마트폰 과의존 예방교육", shortName: "과의존 예방",         fileTag: "과의존예방교육" }
+  ];
+  const DATE_STR = "2026. 6. 22.(월)";
+  const TIME_STR = "15:30 ~ 16:30 (1시간)";
+  const DUTY_TYPES = ["출장", "연가", "조퇴", "병가", "병조퇴", "기타"];
+
+  const ROSTER = [
+    { pos: "교장",         name: "정태일" }, { pos: "교감",         name: "정미영" }, { pos: "행정실장",     name: "이소율" },
+    { pos: "보직교사",     name: "김갑진" }, { pos: "보직교사",     name: "홍승희" }, { pos: "보직교사",     name: "전정훈" },
+    { pos: "보직교사",     name: "전지원" }, { pos: "보직교사",     name: "홍태원" }, { pos: "보직교사",     name: "김호수" },
+    { pos: "보직교사",     name: "나종성" }, { pos: "보직교사",     name: "한성준" }, { pos: "보직교사",     name: "이아름" },
+    { pos: "보직교사",     name: "이해미" }, { pos: "교사",         name: "이신희" }, { pos: "교사",         name: "김영준" },
+    { pos: "교사",         name: "김남용" }, { pos: "교사",         name: "김대현" }, { pos: "교사",         name: "신명선" },
+    { pos: "교사",         name: "서진주" }, { pos: "교사",         name: "백경진" }, { pos: "교사",         name: "박예원" },
+    { pos: "교사",         name: "최도림" }, { pos: "교사",         name: "오경민" }, { pos: "교사",         name: "강서윤" },
+    { pos: "교사",         name: "김아름" }, { pos: "교사",         name: "이유진" }, { pos: "교사",         name: "고운별" },
+    { pos: "교사",         name: "박태양" }, { pos: "교사",         name: "박규남" }, { pos: "교사",         name: "정은화" },
+    { pos: "교사",         name: "채미정" }, { pos: "교사",         name: "배명자" }, { pos: "교사",         name: "권현희" },
+    { pos: "교사",         name: "장용훈" }, { pos: "교사",         name: "김주윤" }, { pos: "주무관",       name: "권영미" },
+    { pos: "주무관",       name: "임채리" }, { pos: "행정실무사",   name: "이순연" }, { pos: "시설관리직",   name: "장익무" },
+    { pos: "교무실무사",   name: "김혜림" }, { pos: "교무행정실무사",name: "고지연" }, { pos: "전문상담사",   name: "김동자" },
+    { pos: "교육복지사",   name: "권아로" }, { pos: "특수실무사",   name: "성명화" }, { pos: "조리실무사",   name: "김영란" },
+    { pos: "조리실무사",   name: "문은순" }, { pos: "조리실무사",   name: "이강미" }, { pos: "조리실무사",   name: "서영란" },
+    { pos: "조리실무사",   name: "송금화" }, { pos: "배움터지킴이", name: "이기호" }, { pos: "BTL",         name: "신호근" },
+    { pos: "환경미화",     name: "곽만임" }, { pos: "숙직",         name: "이시우" }
+  ];
+
+  let state = {};
+  let activeIndex = null;
+  let pending = null;
+  let queue = [];     
+  let qpos = 0;
+  let currentUser = null;
+
+  const el = {
+    list: document.getElementById("rosterList"), search: document.getElementById("searchInput"),
+    overlay: document.getElementById("overlay"), chooser: document.getElementById("chooser"),
+    dutyOverlay: document.getElementById("dutyOverlay"), dutyList: document.getElementById("dutyList"),
+    stepName: document.getElementById("stepName"), courseTitle: document.getElementById("courseTitle"),
+    modalName: document.getElementById("modalName"), placeholder: document.getElementById("placeholder"),
+    canvas: document.getElementById("pad"), syncDot: document.getElementById("syncDot"),
+    syncText: document.getElementById("syncText"), gallery: document.getElementById("gallery"),
+    printArea: document.getElementById("printArea"), pdfHolder: document.getElementById("pdfHolder"),
+    modalHint: document.getElementById("modalHint"), saveBtn: document.getElementById("saveBtn"),
+    sdot0: document.getElementById("sdot0"), sdot1: document.getElementById("sdot1")
+  };
+
+  document.querySelectorAll(".total0").forEach(n => n.textContent = ROSTER.length);
+  document.querySelectorAll(".total1").forEach(n => n.textContent = ROSTER.length);
+
+  function setSync(ok, msg) {
+    el.syncDot.classList.toggle("off", !ok);
+    el.syncText.textContent = msg || (ok ? "실시간 동기화 됨" : "연결 안 됨");
+  }
+
+  function hasSig(rec, t) { return !!(rec && rec.sigs && rec.sigs[t]); }
+  function dutyLabel(duty) {
+    if (!duty || !duty.type) return "";
+    return duty.type === "기타" ? (`기타(${duty.text || ""})`) : duty.type;
+  }
+
+  /* ---------- Render roster ---------- */
+  function renderRoster() {
+    const q = (el.search.value || "").trim();
+    const frag = document.createDocumentFragment();
+    let shown = 0;
+
+    ROSTER.forEach((person, i) => {
+      const rec = state[i];
+      const s0 = hasSig(rec, 0), s1 = hasSig(rec, 1);
+      const full = s0 && s1;
+      const duty = rec && rec.duty && rec.duty.type ? rec.duty : null;
+
+      const row = document.createElement("div");
+      row.className = "row";
+      if (q && person.name.indexOf(q) === -1) { row.classList.add("hidden"); } else { shown++; }
+
+      const dutyChip = duty ? `<span class="chip duty">${dutyLabel(duty)}</span>` : '';
+
+      row.innerHTML =
+        `<div class="no">${i + 1}</div>
+         <div class="who">
+           <div class="name">${person.name}</div>
+           <div class="pos">${person.pos}</div>
+           <div class="stat">
+             <span class="chip ${s0 ? "ok" : ""}">${s0 ? "✓ " : ""}연수1</span>
+             <span class="chip ${s1 ? "ok" : ""}">${s1 ? "✓ " : ""}연수2</span>
+             ${dutyChip}
+           </div>
+         </div>
+         <div class="act"></div>`;
+
+      const act = row.querySelector(".act");
+      const btn = document.createElement("button");
+      btn.className = full ? "btn ghost" : "btn";
+      btn.textContent = full ? "다시 서명" : (s0 || s1 ? "이어서 서명" : "서명하기");
+      btn.onclick = () => openModal(i);
+      act.appendChild(btn);
+      frag.appendChild(row);
+    });
+
+    el.list.innerHTML = "";
+    el.list.appendChild(frag);
+    if (q && shown === 0) {
+      const em = document.createElement("div");
+      em.className = "empty"; em.textContent = `"${q}" 에 해당하는 이름이 없습니다.`;
+      el.list.appendChild(em);
+    }
+
+    let c0 = 0, c1 = 0;
+    Object.keys(state).forEach(k => {
+      if (hasSig(state[k], 0)) c0++;
+      if (hasSig(state[k], 1)) c1++;
+    });
+    document.getElementById("done0").textContent = c0;
+    document.getElementById("done1").textContent = c1;
+    document.getElementById("bar0").style.width = (ROSTER.length ? c0 / ROSTER.length * 100 : 0) + "%";
+    document.getElementById("bar1").style.width = (ROSTER.length ? c1 / ROSTER.length * 100 : 0) + "%";
+  }
+
+  /* ---------- Signature pad ---------- */
+  let ctx, drawing = false, dirty = false, last = null;
+
+  function setupCanvas() {
+    const c = el.canvas;
+    const rect = c.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    c.width = Math.round(rect.width * dpr);
+    c.height = Math.round(200 * dpr);
+    ctx = c.getContext("2d");
+    ctx.scale(dpr, dpr);
+    ctx.lineWidth = 2.4;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "#16213a";
+    dirty = false;
+    el.placeholder.style.display = "block";
+  }
+  function pos(e) {
+    const rect = el.canvas.getBoundingClientRect();
+    const p = e.touches ? e.touches[0] : e;
+    return { x: p.clientX - rect.left, y: p.clientY - rect.top };
+  }
+  function start(e) {
+    e.preventDefault(); drawing = true; dirty = true;
+    el.placeholder.style.display = "none";
+    last = pos(e);
+    ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(last.x + .1, last.y + .1); ctx.stroke();
+  }
+  function move(e) {
+    if (!drawing) return; e.preventDefault();
+    const p = pos(e);
+    ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+    last = p;
+  }
+  function end() { drawing = false; }
+  
+  function bindPad() {
+    const c = el.canvas;
+    c.addEventListener("pointerdown", start);
+    c.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+    c.addEventListener("touchstart", start, { passive: false });
+    c.addEventListener("touchmove", move, { passive: false });
+    c.addEventListener("touchend", end);
+  }
+
+  /* ---------- 서명 모달 (아직 안 한 연수만) ---------- */
+  function openModal(i) {
+    activeIndex = i;
+    const existing = state[i];
+    pending = existing
+      ? JSON.parse(JSON.stringify(existing))
+      : { name: ROSTER[i].name, pos: ROSTER[i].pos, sigs: {}, ts: {} };
+    pending.name = ROSTER[i].name; pending.pos = ROSTER[i].pos;
+    if (!pending.sigs) pending.sigs = {};
+    if (!pending.ts) pending.ts = {};
+
+    const unsigned = [];
+    for (let t = 0; t < TRAININGS.length; t++) { if (!hasSig(pending, t)) unsigned.push(t); }
+    queue = unsigned.length ? unsigned : [0, 1];
+    qpos = 0;
+
+    el.overlay.classList.add("show");
+    document.body.style.overflow = "hidden";
+    renderStep();
+  }
+
+  function curT() { return queue[qpos]; }
+
+  function placeholderText() {
+    return hasSig(pending, curT())
+      ? "이미 서명 완료 · 새로 그리면 교체됩니다 (그대로 두려면 다음/건너뛰기)"
+      : "여기에 서명";
+  }
+
+  function renderStep() {
+    const t = curT();
+    el.stepName.textContent = `연수 ${t + 1} · ${qpos + 1}/${queue.length} 단계`;
+    el.courseTitle.textContent = TRAININGS[t].name;
+    el.modalName.textContent = `${ROSTER[activeIndex].name} (${ROSTER[activeIndex].pos})`;
+
+    el.sdot0.className = "sdot" + (t === 0 ? " active" : (hasSig(pending, 0) ? " done" : ""));
+    el.sdot1.className = "sdot" + (t === 1 ? " active" : (hasSig(pending, 1) ? " done" : ""));
+
+    el.saveBtn.textContent = (qpos === queue.length - 1) ? "저장하고 완료 ✓" : "저장하고 다음 ▶";
+    el.modalHint.classList.remove("show");
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setupCanvas();
+        el.placeholder.textContent = placeholderText();
+      });
+    });
+  }
+
+  function closeModal() {
+    el.overlay.classList.remove("show");
+    document.body.style.overflow = "";
+    activeIndex = null; pending = null; queue = []; qpos = 0;
+  }
+  
+  function advance() {
+    if (qpos < queue.length - 1) { qpos++; renderStep(); }
+    else { closeModal(); renderRoster(); }
+  }
+
+  document.getElementById("sigClose").onclick = closeModal;
+
+  document.getElementById("clearBtn").onclick = () => {
+    setupCanvas();
+    el.placeholder.textContent = placeholderText();
+  };
+  document.getElementById("skipBtn").onclick = () => advance();
+
+  el.saveBtn.onclick = async function () {
+    if (activeIndex === null) return;
+    const t = curT();
+
+    if (dirty) {
+      const btn = this; btn.disabled = true; 
+      const lbl = btn.textContent; btn.textContent = "저장 중…";
+      pending.sigs[t] = el.canvas.toDataURL("image/png");
+      pending.ts[t] = new Date().toISOString();
+      
+      if (!currentUser) {
+         el.modalHint.textContent = "저장 실패. 서버와 연결이 끊겼습니다.";
+         el.modalHint.classList.add("show");
+         btn.disabled = false; btn.textContent = lbl;
+         return;
+      }
+      
+      try {
+        await setDoc(doc(db, collPath, String(activeIndex)), pending);
+        btn.disabled = false; btn.textContent = lbl;
+        // 로컬 상태 즉시 업데이트 (리스너가 늦더라도 UI 부드럽게)
+        state[activeIndex] = JSON.parse(JSON.stringify(pending));
+        renderRoster();
+        advance();
+      } catch(e) {
+        btn.disabled = false; btn.textContent = lbl;
+        el.modalHint.textContent = "저장에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+        el.modalHint.classList.add("show");
+      }
+    } else if (hasSig(pending, t)) {
+      advance();
+    } else {
+      el.modalHint.textContent = "서명을 먼저 작성해 주세요.";
+      el.modalHint.classList.add("show");
+      setTimeout(() => el.modalHint.classList.remove("show"), 2200);
+    }
+  };
+
+  /* ---------- 관리자: 서명 모아보기 ---------- */
+  document.getElementById("viewBtn").onclick = function () {
+    const entries = Object.keys(state).map(Number).sort((a, b) => a - b);
+    if (!entries.length) { el.gallery.innerHTML = '<p class="hint">아직 서명한 교직원이 없습니다.</p>'; return; }
+    let html = '<div class="gallery">';
+    entries.forEach(i => {
+      const r = state[i];
+      function cell(t, label) {
+        let inner;
+        if (hasSig(r, t)) inner = `<img src="${r.sigs[t]}" alt="">`;
+        else if (r.duty && r.duty.type) inner = `<div class="none">${dutyLabel(r.duty)}</div>`;
+        else inner = '<div class="none">미서명</div>';
+        return `<div class="gs"><span>${label}</span>${inner}</div>`;
+      }
+      html += `<div class="gcard"><div class="gn">${ROSTER[i].name}</div>
+              <div class="gsig">${cell(0, "연수1")}${cell(1, "연수2")}</div></div>`;
+    });
+    html += "</div>";
+    el.gallery.innerHTML = html;
+  };
+
+  /* ---------- 복무 상황 입력 ---------- */
+  async function applyDuty(i, type, text) {
+    if (!currentUser) return;
+    const r = state[i] ? JSON.parse(JSON.stringify(state[i]))
+                       : { name: ROSTER[i].name, pos: ROSTER[i].pos, sigs: {}, ts: {} };
+    r.name = ROSTER[i].name; r.pos = ROSTER[i].pos;
+    if (!r.sigs) r.sigs = {}; if (!r.ts) r.ts = {};
+
+    if (!type) { delete r.duty; }
+    else if (type === "기타") { r.duty = { type: "기타", text: (text || "").trim() }; }
+    else { r.duty = { type }; }
+
+    const anySig = hasSig(r, 0) || hasSig(r, 1);
+    try {
+        if (!r.duty && !anySig) { 
+            await deleteDoc(doc(db, collPath, String(i))); 
+            delete state[i]; 
+        } else { 
+            await setDoc(doc(db, collPath, String(i)), r); 
+            state[i] = r; 
+        }
+    } catch(e) {
+        console.error("복무 상황 저장 오류", e);
+    }
+    renderRoster();
+  }
+
+  function renderDutyList() {
+    const onlyUnsigned = document.getElementById("dutyOnlyUnsigned").checked;
+    let html = "";
+    ROSTER.forEach((p, i) => {
+      const r = state[i];
+      const s0 = hasSig(r, 0), s1 = hasSig(r, 1);
+      const full = s0 && s1;
+      if (onlyUnsigned && full) return;
+
+      const duty = r && r.duty ? r.duty : null;
+      let sel = `<select data-i="${i}" class="duty-select"><option value="">— 없음 —</option>`;
+      DUTY_TYPES.forEach(tp => {
+        sel += `<option value="${tp}"${duty && duty.type === tp ? " selected" : ""}>${tp}</option>`;
+      });
+      sel += "</select>";
+
+      const otherShown = duty && duty.type === "기타";
+      const otherVal = otherShown ? (duty.text || "") : "";
+      const other = `<input class="duty-other" data-i="${i}" placeholder="기타 사유 입력" value="${otherVal}" ${otherShown ? "" : ' style="display:none"'}>`;
+
+      const chips =
+        `<span class="chip ${s0 ? "ok" : ""}">${s0 ? "✓ " : ""}연수1</span> ` +
+        `<span class="chip ${s1 ? "ok" : ""}">${s1 ? "✓ " : ""}연수2</span>`;
+
+      html +=
+        `<div class="duty-row">
+          <div class="dwho"><b>${p.name}</b><span>${p.pos}</span>
+            <div class="dstat">${chips}</div></div>
+          <div class="dctrl">${sel}${other}</div>
+        </div>`;
+    });
+    if (!html) html = '<p class="hint" style="padding:16px 0">표시할 교직원이 없습니다.</p>';
+    el.dutyList.innerHTML = html;
+
+    document.querySelectorAll(".duty-select").forEach(s => {
+      s.onchange = async function () {
+        const i = +this.getAttribute("data-i");
+        const otherInput = document.querySelector(`.duty-other[data-i="${i}"]`);
+        if (this.value === "기타") { otherInput.style.display = ""; otherInput.focus(); }
+        else { otherInput.style.display = "none"; otherInput.value = ""; }
+        await applyDuty(i, this.value, otherInput ? otherInput.value : "");
+      };
+    });
+    document.querySelectorAll(".duty-other").forEach(inp => {
+      const handler = async function () {
+        const i = +this.getAttribute("data-i");
+        await applyDuty(i, "기타", this.value);
+      };
+      inp.onchange = handler;
+      inp.onblur = handler;
+    });
+  }
+
+  document.getElementById("dutyOnlyUnsigned").addEventListener("change", renderDutyList);
+
+  document.getElementById("printBtn").onclick = function () {
+    renderDutyList();
+    el.dutyOverlay.classList.add("show");
+    document.body.style.overflow = "hidden";
+  };
+  function closeDuty() {
+    el.dutyOverlay.classList.remove("show");
+    document.body.style.overflow = "";
+  }
+  document.getElementById("dutyClose").onclick = closeDuty;
+  el.dutyOverlay.addEventListener("click", e => { if (e.target === el.dutyOverlay) closeDuty(); });
+  document.getElementById("dutyNext").onclick = function () {
+    closeDuty();
+    el.chooser.classList.add("show");
+    document.body.style.overflow = "hidden";
+  };
+
+  /* ---------- 등록부 마크업 생성 ---------- */
+  function sigContent(idx, t) {
+    const r = state[idx];
+    if (hasSig(r, t)) return `<img src="${r.sigs[t]}" alt="">`;
+    if (r && r.duty && r.duty.type) return `<span class="duty">${dutyLabel(r.duty)}</span>`;
+    return "";
+  }
+
+  function buildRegisterHTML(mode) {
+    const combined = (mode === "both");
+    let rows = "";
+
+    if (combined) {
+      function cellC(idx) {
+        if (idx >= ROSTER.length) {
+          return "<td></td><td></td><td></td><td class='sig-cell'></td><td class='sig-cell'></td>";
+        }
+        const p = ROSTER[idx];
+        return `<td style='text-align:center'>${idx + 1}</td>
+                <td style='text-align:center'>${p.pos}</td>
+                <td style='text-align:center'>${p.name}</td>
+                <td class='sig-cell'>${sigContent(idx, 0)}</td>
+                <td class='sig-cell'>${sigContent(idx, 1)}</td>`;
+      }
+      const halfC = Math.ceil(ROSTER.length / 2);
+      for (let rc = 0; rc < halfC; rc++) {
+        rows += `<tr>${cellC(rc)}<td class='gap'></td>${cellC(rc + halfC)}</tr>`;
+      }
+      return `<h2 class='combined'>${TRAININGS[0].name} · ${TRAININGS[1].name} 연수 등록부</h2>
+        <p class='psub'>인천상정중학교 &nbsp;|&nbsp; ${DATE_STR} &nbsp;${TIME_STR} &nbsp;|&nbsp; 대상: 교직원</p>
+        <table class='combined-table'><colgroup>
+        <col style='width:5%'><col style='width:8.5%'><col style='width:8.5%'><col style='width:13%'><col style='width:13%'>
+        <col style='width:2%'>
+        <col style='width:5%'><col style='width:8.5%'><col style='width:8.5%'><col style='width:13%'><col style='width:13%'>
+        </colgroup><thead><tr>
+        <th>연번</th><th>직위</th><th>성명</th><th>서명<br>(연수1)</th><th>서명<br>(연수2)</th>
+        <th class='gap'></th>
+        <th>연번</th><th>직위</th><th>성명</th><th>서명<br>(연수1)</th><th>서명<br>(연수2)</th>
+        </tr></thead><tbody>${rows}</tbody></table>`;
+    }
+
+    function cell(idx) {
+      if (idx >= ROSTER.length) {
+        return "<td></td><td></td><td></td><td class='sig-cell'></td>";
+      }
+      const p = ROSTER[idx];
+      return `<td style='text-align:center'>${idx + 1}</td>
+              <td style='text-align:center'>${p.pos}</td>
+              <td style='text-align:center'>${p.name}</td>
+              <td class='sig-cell'>${sigContent(idx, mode)}</td>`;
+    }
+    const half = Math.ceil(ROSTER.length / 2);
+    for (let r = 0; r < half; r++) {
+      rows += `<tr>${cell(r)}<td class='gap'></td>${cell(r + half)}</tr>`;
+    }
+    return `<h2>${TRAININGS[mode].name} 연수 등록부</h2>
+      <p class='psub'>인천상정중학교 &nbsp;|&nbsp; ${DATE_STR} &nbsp;${TIME_STR} &nbsp;|&nbsp; 대상: 교직원</p>
+      <table><colgroup>
+      <col style='width:6%'><col style='width:12%'><col style='width:12%'><col style='width:18%'>
+      <col style='width:2%'>
+      <col style='width:6%'><col style='width:12%'><col style='width:12%'><col style='width:18%'>
+      </colgroup><thead><tr>
+      <th>연번</th><th>직위</th><th>성명</th><th>서명</th>
+      <th class='gap'></th>
+      <th>연번</th><th>직위</th><th>성명</th><th>서명</th>
+      </tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
+  /* ---------- 출력 형식 선택 ---------- */
+  function closeChooser() {
+    el.chooser.classList.remove("show");
+    document.body.style.overflow = "";
+  }
+  document.getElementById("chCancel").onclick = closeChooser;
+  el.chooser.addEventListener("click", e => { if (e.target === el.chooser) closeChooser(); });
+  document.getElementById("ch0").onclick = () => { closeChooser(); generate(0); };
+  document.getElementById("ch1").onclick = () => { closeChooser(); generate(1); };
+  document.getElementById("chBoth").onclick = () => { closeChooser(); generate("both"); };
+
+  /* ---------- PDF / 인쇄 ---------- */
+  async function generate(mode) {
+    const btn = document.getElementById("printBtn");
+    const label = btn.textContent;
+    btn.disabled = true; btn.textContent = "준비 중…";
+    document.getElementById("pdfLink").innerHTML = "";
+
+    const markup = buildRegisterHTML(mode);
+    el.printArea.innerHTML = markup;
+    el.pdfHolder.innerHTML = markup;
+
+    const fname = `인천상정중_${mode === "both" ? "통합연수등록부" : TRAININGS[mode].fileTag + "_연수등록부"}.pdf`;
+
+    const canMakePdf = window.html2canvas && window.jspdf && window.jspdf.jsPDF;
+    if (canMakePdf) {
+      try {
+        await new Promise(r => { requestAnimationFrame(() => { requestAnimationFrame(r); }); });
+        const canvas = await window.html2canvas(el.pdfHolder, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
+        const imgData = canvas.toDataURL("image/png");
+        const jsPDF = window.jspdf.jsPDF;
+        const pdf = new jsPDF("p", "mm", "a4");
+
+        const pageW = 210, pageH = 297;
+        const marginX = 10, marginTop = 14, marginBottom = 12;
+        const usableW = pageW - marginX * 2;              
+        const usableH = pageH - marginTop - marginBottom; 
+
+        const imgW = usableW;
+        const naturalH = canvas.height * imgW / canvas.width;
+        const imgH = Math.min(naturalH, usableH);
+        pdf.addImage(imgData, "PNG", marginX, marginTop, imgW, imgH);
+
+        try { pdf.save(fname); } catch (e) { console.error(e); }
+        try {
+          const blobUrl = pdf.output("bloburl");
+          document.getElementById("pdfLink").innerHTML =
+            `<a href="${blobUrl}" download="${fname}" target="_blank" rel="noopener" 
+            style="display:inline-block;font-weight:700;color:var(--navy);text-decoration:underline">
+            ↓ ${fname} 내려받기 (다운로드가 안 되면 여기를 누르세요)</a>`;
+        } catch (e) { console.error(e); }
+        btn.disabled = false; btn.textContent = label;
+        return;
+      } catch (e) {
+        console.error("PDF 생성 실패, 인쇄로 전환합니다.", e);
+      }
+    }
+    btn.disabled = false; btn.textContent = label;
+    window.print();
+  }
+
+  /* ---------- Reset (password-gated) ---------- */
+  const ADMIN_PW = "3495";
+  const resetGate = document.getElementById("resetGate");
+  const gatePw = document.getElementById("gatePw");
+  const gateErr = document.getElementById("gateErr");
+  const gateOk = document.getElementById("gateOk");
+
+  document.getElementById("resetBtn").onclick = function () {
+    gateErr.classList.remove("show");
+    gateOk.classList.remove("show");
+    gatePw.value = "";
+    resetGate.classList.add("show");
+    gatePw.focus();
+  };
+  document.getElementById("gateCancel").onclick = () => resetGate.classList.remove("show");
+  gatePw.addEventListener("keydown", e => {
+    if (e.key === "Enter") document.getElementById("gateConfirm").click();
+  });
+  
+  document.getElementById("gateConfirm").onclick = async function () {
+    gateErr.classList.remove("show");
+    if (gatePw.value !== ADMIN_PW) {
+      gateErr.classList.add("show"); gatePw.value = ""; gatePw.focus(); return;
+    }
+    if (!currentUser) return;
+
+    const btn = this; btn.disabled = true; btn.textContent = "삭제 중…";
+    const idxs = Object.keys(state).map(Number);
+    for (let k = 0; k < idxs.length; k++) { 
+        try { await deleteDoc(doc(db, collPath, String(idxs[k]))); } catch(e){} 
+    }
+    
+    // 리스너가 지워줄 테지만, 즉각적인 UI 반영을 위해 로컬도 초기화
+    state = {};
+    el.gallery.innerHTML = "";
+    renderRoster();
+    btn.disabled = false; btn.textContent = "초기화 실행";
+    gatePw.value = "";
+    gateOk.textContent = `✓ ${idxs.length}명의 기록(서명·복무)을 모두 삭제했습니다.`;
+    gateOk.classList.add("show");
+  };
+
+  /* ---------- Firebase 초기화 및 리스너 ---------- */
+  el.search.addEventListener("input", renderRoster);
+  bindPad();
+  renderRoster();
+
+  const initFirebaseAuth = async () => {
+    setSync(false, "연결 중...");
+    try {
+      if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+        await signInWithCustomToken(auth, __initial_auth_token);
+      } else {
+        await signInAnonymously(auth);
+      }
+    } catch (error) {
+      console.error("인증 실패:", error);
+      setSync(false, "설정 오류 (익명 로그인 필요)");
+      alert("Firebase 익명 로그인 인증에 실패했습니다.\n설정을 확인해 주세요.");
+    }
+  };
+
+  // 1. 먼저 인증을 시도합니다.
+  initFirebaseAuth();
+
+  // 2. 인증이 완료되면 데이터베이스를 구독합니다.
+  onAuthStateChanged(auth, (user) => {
+    currentUser = user;
+    if (user) {
+      const colRef = collection(db, collPath);
+      // 실시간 데이터베이스 변경 리스너
+      onSnapshot(colRef, (snapshot) => {
+        state = {};
+        snapshot.forEach((doc) => {
+          state[doc.id] = doc.data();
+        });
+        renderRoster();
+        setSync(true);
+      }, (error) => {
+        console.error("데이터 로드 오류:", error);
+        setSync(false, "연결 오류");
+      });
+    } else {
+      setSync(false, "연결 안 됨");
+    }
+  });
+
+</script>
+</body>
+</html>
