@@ -370,8 +370,8 @@
   #pdfHolder th { background: #eee; font-size: 12.5px; }
   #pdfHolder table.combined-table th, #pdfHolder table.combined-table td { font-size: 12px; padding: 3px 4px; }
   #pdfHolder table.combined-table th { font-size: 11px; }
-  #pdfHolder .sig-cell { height: 30px; text-align: center; }
-  #pdfHolder .sig-cell img { max-width: 100%; height: 27px; object-fit: contain; }
+  #pdfHolder .sig-cell { height: 30px; text-align: center; vertical-align: middle; }
+  #pdfHolder .sig-cell img { max-width: 100%; height: 27px; object-fit: contain; display: block; margin: 0 auto; }
   #pdfHolder .duty { font-size: 12.5px; font-weight: 700; color: #1a1a1a; }
   #pdfHolder .gap, #pdfHolder th.gap { border: 0; background: transparent; padding: 0; }
 
@@ -390,8 +390,8 @@
   .print-only th, .print-only td { border: 1px solid #333; padding: 4px 5px; font-size: 12px; }
   .print-only th { background: #eee; }
   .print-only table.combined-table th, .print-only table.combined-table td { font-size: 10.5px; padding: 3px 4px; }
-  .print-only .sig-cell { height: 34px; text-align: center; }
-  .print-only .sig-cell img { max-width: 100%; height: 30px; object-fit: contain; }
+  .print-only .sig-cell { height: 34px; text-align: center; vertical-align: middle; }
+  .print-only .sig-cell img { max-width: 100%; height: 30px; object-fit: contain; display: block; margin: 0 auto; }
   .print-only .duty { font-size: 11px; font-weight: 700; color: #1a1a1a; }
   .print-only .gap, .print-only th.gap { border: 0; background: transparent; padding: 0; }
 </style>
@@ -488,7 +488,6 @@
   <p class="note">© 2026 인천상정중 융합정보부</p>
 </div>
 
-<!-- 서명 모달 (아직 안 한 연수만 순서대로) -->
 <div class="overlay" id="overlay">
   <div class="modal">
     <button class="modal-close" id="sigClose" aria-label="닫기">✕</button>
@@ -516,7 +515,6 @@
   </div>
 </div>
 
-<!-- 복무 상황 입력 모달 -->
 <div class="overlay" id="dutyOverlay">
   <div class="modal">
     <div class="duty-head">
@@ -532,7 +530,6 @@
   </div>
 </div>
 
-<!-- 출력 형식 선택 모달 -->
 <div class="overlay" id="chooser">
   <div class="modal">
     <div class="chooser-head">
@@ -559,13 +556,10 @@
   </div>
 </div>
 
-<!-- Printable register (native print fallback) -->
 <div class="print-only" id="printArea"></div>
 
-<!-- Off-screen holder used to render the register into a downloadable PDF -->
 <div id="pdfHolder" aria-hidden="true"></div>
 
-<!-- 최신 Firebase Firestore V11 모듈 스크립트 적용 -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
   import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
