@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <!-- 모바일에서 입력/서명 시 화면 확대/축소를 방지합니다 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>상정중 교직원 연수 등록부_융합정보부(2026.6.22.)</title>
+<title>상정중 교직원 연수 전자 등록부_융합정보부(2026.6.22.)</title>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -388,8 +388,8 @@
 <div class="wrap">
   <div class="doc">
     <div class="masthead">
-      <p class="eyebrow">인천상정중학교 교직원 연수</p>
-      <h1>융합정보부 주관 연수 등록부(2026.6.22.)</h1>
+      <p class="eyebrow">2026학년도 인천상정중학교</p>
+      <h1>교직원 연수 전자 등록부</h1>
       <div class="courses">
         <div class="c"><span class="tag">연수 1</span><span>개인정보보호 및 정보보안 교육</span></div>
         <div class="c"><span class="tag">연수 2</span><span>인터넷·스마트폰 과의존 예방교육</span></div>
@@ -643,32 +643,9 @@
   document.querySelectorAll(".total0").forEach(n => n.textContent = ROSTER.length);
   document.querySelectorAll(".total1").forEach(n => n.textContent = ROSTER.length);
 
-  /* ★★★ 흔들림 방지 1: 모달 배경 자체에서 터치스크롤 100% 차단 ★★★ */
-  el.overlay.addEventListener('touchmove', function(e) {
+  /* ★★★ 흔들림 방지 1: 서명 모달 켜졌을 때 전역 스크롤 원천 차단 이벤트 ★★★ */
+  function preventGlobalScroll(e) {
     if (e.cancelable) e.preventDefault();
-  }, { passive: false });
-
-  /* ★★★ 흔들림 방지 2: 모달이 켜졌을 때 뒷배경 고정 (바운스 원천 차단) ★★★ */
-  let lockedScrollY = 0;
-  function lockBodyScroll() {
-    lockedScrollY = window.scrollY;
-    document.body.style.position = 'fixed';
-    document.body.style.top = `-${lockedScrollY}px`;
-    document.body.style.left = '0';
-    document.body.style.right = '0';
-    document.body.style.width = '100%';
-    document.body.style.overflow = 'hidden';
-    document.body.style.touchAction = 'none'; // 브라우저 제스처 차단
-  }
-  function unlockBodyScroll() {
-    document.body.style.position = '';
-    document.body.style.top = '';
-    document.body.style.left = '';
-    document.body.style.right = '';
-    document.body.style.width = '';
-    document.body.style.overflow = '';
-    document.body.style.touchAction = '';
-    window.scrollTo(0, lockedScrollY);
   }
 
   function setSync(ok, msg) {
@@ -771,7 +748,6 @@
     return { x: cx - rect.left, y: cy - rect.top };
   }
   
-  /* ★★★ 흔들림 방지 3: 서명 그리기 시 절대적으로 스크롤을 막는 로직 ★★★ */
   function start(e) {
     if(e.cancelable) e.preventDefault(); 
     e.stopPropagation();
@@ -795,20 +771,11 @@
   
   function bindPad() {
     const c = el.canvas;
-    const padWrap = document.querySelector('.pad-wrap');
-
-    // 핵심 방어: 패드 바깥 여백이나 테두리를 터치했을 때 화면이 찔끔 움직이는 현상을 캡처 단계에서 완벽 차단
-    const blockScroll = (e) => { if (e.cancelable) e.preventDefault(); };
-    if (padWrap) {
-        padWrap.addEventListener("touchstart", blockScroll, { passive: false, capture: true });
-        padWrap.addEventListener("touchmove", blockScroll, { passive: false, capture: true });
-    }
-
     c.addEventListener("mousedown", start);
     c.addEventListener("mousemove", move);
     window.addEventListener("mouseup", end);
     
-    // 모바일 터치 전용 이벤트 확실한 할당
+    // 모바일 터치 이벤트
     c.addEventListener("touchstart", start, { passive: false });
     c.addEventListener("touchmove", move, { passive: false });
     c.addEventListener("touchend", end, { passive: false });
@@ -833,13 +800,15 @@
 
     el.overlay.classList.add("show");
     
-    // 서명창이 열렸을 때 전체 화면 스크롤링 원천 차단
+    // ★★★ 흔들림 방지 2: CSS 및 전역 이벤트 기반 가장 완벽한 스크롤 차단 (바운스, 레이아웃 이동 방지)
     document.documentElement.style.overflow = "hidden";
     document.body.style.overflow = "hidden";
+    document.documentElement.style.touchAction = "none";
     document.body.style.touchAction = "none";
-    document.body.style.overscrollBehavior = "none";
     
-    lockBodyScroll(); 
+    // window 전역에서 발생하는 터치 움직임을 완전 차단
+    window.addEventListener('touchmove', preventGlobalScroll, { passive: false });
+    
     renderStep();
   }
 
@@ -873,12 +842,14 @@
 
   function closeModal() {
     el.overlay.classList.remove("show");
-    unlockBodyScroll(); 
     
+    // 모달을 닫을 때 원래대로 스크롤 권한 복구
     document.documentElement.style.overflow = "";
     document.body.style.overflow = "";
+    document.documentElement.style.touchAction = "";
     document.body.style.touchAction = "";
-    document.body.style.overscrollBehavior = "";
+    
+    window.removeEventListener('touchmove', preventGlobalScroll);
     
     activeIndex = null; pending = null; queue = []; qpos = 0;
   }
