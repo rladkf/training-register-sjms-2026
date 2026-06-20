@@ -50,7 +50,7 @@
     -webkit-text-size-adjust: 100%;
   }
 
-  /* 모달 열렸을 때 백그라운드 얌전하게 고정 (다른 요소 방해 안 함) */
+  /* 모달 열렸을 때 백그라운드 얌전하게 고정 */
   body.modal-open {
     overflow: hidden !important;
   }
@@ -244,7 +244,6 @@
   .modal-head .who-name { font-size: 14px; color: var(--ink-soft); margin-top: 4px; font-weight: 600; }
   .pad-wrap { padding: 12px 22px 4px; }
   
-  /* ★ 서명 패드 CSS: 캔버스 외부에 터치 액션 금지 추가 */
   .pad {
     position: relative; border: 1.5px dashed var(--line); border-radius: 12px;
     background: #fffdf8; overflow: hidden;
@@ -641,6 +640,23 @@
     sdot0: document.getElementById("sdot0"), sdot1: document.getElementById("sdot1")
   };
 
+  /* ★ 서명 모달 배경에서 일어나는 스와이프를 막습니다 (버튼 클릭엔 영향 없음) */
+  el.overlay.addEventListener('touchmove', function(e) {
+      if (e.cancelable) e.preventDefault();
+  }, { passive: false });
+  
+  /* ★ 출력 모달 배경에서 일어나는 스와이프를 막습니다 */
+  el.chooser.addEventListener('touchmove', function(e) {
+      if (e.cancelable) e.preventDefault();
+  }, { passive: false });
+  
+  /* ★ 복무 모달은 스크롤 목록이 있으므로 리스트 바깥에서만 스와이프를 막습니다 */
+  el.dutyOverlay.addEventListener('touchmove', function(e) {
+      if (!e.target.closest('.duty-list')) {
+          if (e.cancelable) e.preventDefault();
+      }
+  }, { passive: false });
+
   document.querySelectorAll(".total0").forEach(n => n.textContent = ROSTER.length);
   document.querySelectorAll(".total1").forEach(n => n.textContent = ROSTER.length);
 
@@ -655,7 +671,6 @@
     return duty.type === "기타" ? (`기타(${duty.text || ""})`) : duty.type;
   }
 
-  /* ★ 날짜 포맷 함수 (관리자 갤러리 시간 표시용) ★ */
   function formatTS(isoStr) {
     if (!isoStr) return "";
     const d = new Date(isoStr);
@@ -730,7 +745,7 @@
     document.getElementById("bar1").style.width = (ROSTER.length ? c1 / ROSTER.length * 100 : 0) + "%";
   }
 
-  /* ---------- Signature pad (최종 스크롤 완벽 차단 로직) ---------- */
+  /* ---------- Signature pad ---------- */
   let ctx, drawing = false, dirty = false, last = null;
 
   function setupCanvas() {
@@ -753,7 +768,7 @@
     const rect = el.canvas.getBoundingClientRect();
     let cx = e.clientX, cy = e.clientY;
     
-    // 터치 이벤트 대응
+    // 모바일 터치 이벤트 좌표 추출
     if (e.touches && e.touches.length > 0) {
       cx = e.touches[0].clientX;
       cy = e.touches[0].clientY;
@@ -792,19 +807,26 @@
     c.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
     
-    /* ★ 모바일 (터치): 캔버스 영역 안에서의 터치 제스처만 완벽 차단! (다른 버튼 방해 안 함) */
-    const preventAndHandle = (handler) => (e) => {
-        if (e.cancelable) {
-            e.preventDefault(); // 스와이프, 고무줄 현상(rubber-banding) 원천 차단
-        }
-        handler(e);
-    };
-
-    // { passive: false } 가 모바일 브라우저 락(Lock)의 핵심입니다.
-    c.addEventListener("touchstart", preventAndHandle(onDown), { passive: false });
-    c.addEventListener("touchmove", preventAndHandle(onMove), { passive: false });
-    c.addEventListener("touchend", preventAndHandle(onUp), { passive: false });
-    c.addEventListener("touchcancel", preventAndHandle(onUp), { passive: false });
+    /* ★ 모바일 (터치) : 캔버스 내에서의 제스처를 브라우저에 넘기지 않고 완벽하게 독점! */
+    c.addEventListener("touchstart", function(e) {
+        if (e.cancelable) e.preventDefault(); // 스크롤 시도 원천 차단
+        onDown(e);
+    }, { passive: false });
+    
+    c.addEventListener("touchmove", function(e) {
+        if (e.cancelable) e.preventDefault(); // 스크롤 시도 원천 차단
+        onMove(e);
+    }, { passive: false });
+    
+    c.addEventListener("touchend", function(e) {
+        if (e.cancelable) e.preventDefault();
+        onUp(e);
+    }, { passive: false });
+    
+    c.addEventListener("touchcancel", function(e) {
+        if (e.cancelable) e.preventDefault();
+        onUp(e);
+    }, { passive: false });
   }
 
   /* ---------- 서명 모달 (아직 안 한 연수만) ---------- */
@@ -885,7 +907,7 @@
       const btn = this; btn.disabled = true; 
       const lbl = btn.textContent; btn.textContent = "저장 중…";
       pending.sigs[t] = el.canvas.toDataURL("image/png");
-      pending.ts[t] = new Date().toISOString(); // ★ 서명 시간 저장!
+      pending.ts[t] = new Date().toISOString(); 
       
       if (!currentUser) {
          el.modalHint.textContent = "저장 실패. 서버와 연결이 끊겼습니다.";
