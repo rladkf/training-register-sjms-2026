@@ -208,15 +208,6 @@
     display: none; z-index: 50; padding: 0;
   }
   .overlay.show { display: block; }
-  
-  /* ★ 핵심 해결책: 서명 모달 전체 및 내부 요소에 브라우저 제스처 하드웨어 차단 (버튼 클릭은 방해하지 않음) */
-  #overlay, #overlay .modal, .pad-wrap, .pad, .pad canvas {
-    touch-action: none !important;
-    overscroll-behavior: none !important;
-    -webkit-user-select: none !important;
-    user-select: none !important;
-    -webkit-touch-callout: none !important;
-  }
 
   .modal {
     position: absolute; bottom: 0; left: 0; right: 0; margin: 0 auto;
@@ -253,6 +244,12 @@
   .modal-head .who-name { font-size: 14px; color: var(--ink-soft); margin-top: 4px; font-weight: 600; }
   .pad-wrap { padding: 12px 22px 4px; }
   
+  /* ★ 캔버스 영역 한정 터치 스크롤 방지 규칙 복구 */
+  .pad, .pad canvas {
+    touch-action: none !important;
+    overscroll-behavior: none !important;
+  }
+
   .pad {
     position: relative; border: 1.5px dashed var(--line); border-radius: 12px;
     background: #fffdf8; overflow: hidden;
@@ -366,8 +363,11 @@
   #pdfHolder th { background: #eee; font-size: 12.5px; }
   #pdfHolder table.combined-table th, #pdfHolder table.combined-table td { font-size: 12px; padding: 3px 4px; }
   #pdfHolder table.combined-table th { font-size: 11px; }
-  #pdfHolder .sig-cell { height: 30px; text-align: center; }
-  #pdfHolder .sig-cell img { max-width: 100%; height: 27px; object-fit: contain; }
+  
+  /* ★ 인쇄용 서명 이미지 가운데 정렬 수정본 */
+  #pdfHolder .sig-cell { height: 30px; text-align: center; vertical-align: middle; }
+  #pdfHolder .sig-cell img { display: block; margin: 0 auto; max-width: 100%; height: 27px; object-fit: contain; }
+  
   #pdfHolder .duty { font-size: 12.5px; font-weight: 700; color: #1a1a1a; }
   #pdfHolder .gap, #pdfHolder th.gap { border: 0; background: transparent; padding: 0; }
 
@@ -386,8 +386,11 @@
   .print-only th, .print-only td { border: 1px solid #333; padding: 4px 5px; font-size: 12px; }
   .print-only th { background: #eee; }
   .print-only table.combined-table th, .print-only table.combined-table td { font-size: 10.5px; padding: 3px 4px; }
-  .print-only .sig-cell { height: 34px; text-align: center; }
-  .print-only .sig-cell img { max-width: 100%; height: 30px; object-fit: contain; }
+  
+  /* ★ 일반 인쇄(웹 브라우저 인쇄)용 서명 이미지도 가운데 정렬 수정본 */
+  .print-only .sig-cell { height: 34px; text-align: center; vertical-align: middle; }
+  .print-only .sig-cell img { display: block; margin: 0 auto; max-width: 100%; height: 30px; object-fit: contain; }
+  
   .print-only .duty { font-size: 11px; font-weight: 700; color: #1a1a1a; }
   .print-only .gap, .print-only th.gap { border: 0; background: transparent; padding: 0; }
 </style>
@@ -647,14 +650,18 @@
     sdot0: document.getElementById("sdot0"), sdot1: document.getElementById("sdot1")
   };
 
-  /* ★ 서명 모달 배경에서 일어나는 스와이프를 막습니다 (버튼 클릭엔 영향 없음) */
+  /* ★ 서명 모달 배경 및 불필요한 스와이프 차단 (버튼 작동 방해 안함) */
   el.overlay.addEventListener('touchmove', function(e) {
-      if (e.cancelable) e.preventDefault();
+      if (e.target === el.overlay) {
+          if (e.cancelable) e.preventDefault();
+      }
   }, { passive: false });
   
   /* ★ 출력 모달 배경에서 일어나는 스와이프를 막습니다 */
   el.chooser.addEventListener('touchmove', function(e) {
-      if (e.cancelable) e.preventDefault();
+      if (e.target === el.chooser) {
+          if (e.cancelable) e.preventDefault();
+      }
   }, { passive: false });
   
   /* ★ 복무 모달은 스크롤 목록이 있으므로 리스트 바깥에서만 스와이프를 막습니다 */
@@ -787,10 +794,7 @@
     return { x: cx - rect.left, y: cy - rect.top };
   }
   
-  /* ★ 캔버스 동작 중에 브라우저가 끼어들지 못하게 원천 차단 */
   function onDown(e) {
-    if (e.cancelable) e.preventDefault(); 
-    e.stopPropagation(); // 이벤트가 위로 올라가 스크롤을 유발하는 것 차단
     drawing = true; dirty = true;
     el.placeholder.style.opacity = "0"; 
     
@@ -799,8 +803,6 @@
   }
   
   function onMove(e) {
-    if (e.cancelable) e.preventDefault(); 
-    e.stopPropagation(); // 이벤트가 위로 올라가 스크롤을 유발하는 것 차단
     if (!drawing) return; 
     const p = getPos(e);
     ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke();
@@ -808,24 +810,38 @@
   }
   
   function onUp(e) { 
-    if (e.cancelable) e.preventDefault();
-    e.stopPropagation();
     drawing = false; 
   }
   
+  /* ★ 캔버스 동작 중에 브라우저가 끼어들지 못하게 원천 차단하는 가장 이상적인 코드입니다. */
   function bindPad() {
     const c = el.canvas;
     
     // PC (마우스)
-    c.addEventListener("mousedown", onDown, { passive: false });
-    c.addEventListener("mousemove", onMove, { passive: false });
+    c.addEventListener("mousedown", onDown);
+    c.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
     
     // 모바일 (터치)
-    c.addEventListener("touchstart", onDown, { passive: false });
-    c.addEventListener("touchmove", onMove, { passive: false });
-    window.addEventListener("touchend", onUp, { passive: false });
-    window.addEventListener("touchcancel", onUp, { passive: false });
+    c.addEventListener("touchstart", function(e) {
+        if (e.cancelable) e.preventDefault(); // 화면 스크롤, 튕김 현상 절대 차단
+        onDown(e);
+    }, { passive: false });
+    
+    c.addEventListener("touchmove", function(e) {
+        if (e.cancelable) e.preventDefault(); // 획을 그을 때 스크롤링 절대 차단
+        onMove(e);
+    }, { passive: false });
+    
+    c.addEventListener("touchend", function(e) {
+        if (e.cancelable) e.preventDefault(); 
+        onUp(e);
+    }, { passive: false });
+    
+    c.addEventListener("touchcancel", function(e) {
+        if (e.cancelable) e.preventDefault();
+        onUp(e);
+    }, { passive: false });
   }
 
   /* ---------- 서명 모달 (아직 안 한 연수만) ---------- */
