@@ -192,18 +192,28 @@
   .overlay {
     position: fixed; inset: 0; background: rgba(20,28,42,.5); backdrop-filter: blur(3px);
     display: none; align-items: flex-end; justify-content: center; z-index: 50; padding: 0;
-    /* 모달 배경 터치 시 스크롤 차단 */
     touch-action: none;
     overscroll-behavior: none;
   }
   .overlay.show { display: flex; }
   @media (min-width: 560px) { .overlay { align-items: center; padding: 20px; } }
+  
+  /* 모달창 자체 글자 선택 및 꾹 누르기 액션 강력 방지 */
   .modal {
     position: relative; background: #fff; width: 100%; max-width: 540px;
     border-radius: 18px 18px 0 0; box-shadow: 0 -10px 40px rgba(0,0,0,.25);
     overflow: hidden; animation: rise .28s cubic-bezier(.2,.8,.2,1);
     display: flex; flex-direction: column; max-height: 92vh;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
   }
+  /* 입력창(검색, 비밀번호) 등은 선택 가능하게 예외 처리 */
+  input, select, textarea {
+    -webkit-user-select: auto;
+    user-select: auto;
+  }
+  
   @media (min-width: 560px) { .modal { border-radius: 18px; } }
   @keyframes rise { from { transform: translateY(24px); opacity: .6; } to { transform: none; opacity: 1; } }
 
@@ -232,15 +242,15 @@
   .pad {
     position: relative; border: 1.5px dashed var(--line); border-radius: 12px;
     background: #fffdf8; overflow: hidden;
-    touch-action: none;          /* 브라우저 기본 제스처 100% 차단 */
-    overscroll-behavior: none;   
+    touch-action: none !important;          /* 브라우저 기본 제스처 100% 차단 */
+    overscroll-behavior: none !important;   
     -webkit-touch-callout: none; /* iOS 꾹 누를 때 뜨는 메뉴 방지 */
     -webkit-user-select: none;   /* 텍스트 선택 방지 */
     user-select: none;
   }
   .pad canvas { 
     display: block; width: 100%; height: 200px; 
-    touch-action: none; cursor: crosshair; 
+    touch-action: none !important; cursor: crosshair; 
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     user-select: none;
@@ -379,7 +389,7 @@
   <div class="doc">
     <div class="masthead">
       <p class="eyebrow">인천상정중학교 교직원 연수</p>
-      <h1>교직원 연수 통합 전자 등록부</h1>
+      <h1>융합정보부 주관 연수 등록부(2026.6.22.)</h1>
       <div class="courses">
         <div class="c"><span class="tag">연수 1</span><span>개인정보보호 및 정보보안 교육</span></div>
         <div class="c"><span class="tag">연수 2</span><span>인터넷·스마트폰 과의존 예방교육</span></div>
@@ -752,8 +762,13 @@
   
   function pos(e) {
     const rect = el.canvas.getBoundingClientRect();
-    const p = e.touches ? e.touches[0] : e;
-    return { x: p.clientX - rect.left, y: p.clientY - rect.top };
+    let cx = e.clientX;
+    let cy = e.clientY;
+    if (e.touches && e.touches.length > 0) {
+      cx = e.touches[0].clientX;
+      cy = e.touches[0].clientY;
+    }
+    return { x: cx - rect.left, y: cy - rect.top };
   }
   
   /* ★★★ 흔들림 방지 3: 서명 그리기 시 절대적으로 스크롤을 막는 로직 ★★★ */
@@ -766,7 +781,7 @@
     ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(last.x + .1, last.y + .1); ctx.stroke();
   }
   function move(e) {
-    if(e.cancelable) e.preventDefault(); // 중요: drawing 상태와 상관없이 무조건 캔버스 위 스크롤 차단
+    if(e.cancelable) e.preventDefault(); 
     e.stopPropagation();
     if (!drawing) return; 
     const p = pos(e);
@@ -780,22 +795,24 @@
   
   function bindPad() {
     const c = el.canvas;
-    c.addEventListener("pointerdown", start, { passive: false });
-    c.addEventListener("pointermove", move, { passive: false });
-    window.addEventListener("pointerup", end);
+    const padWrap = document.querySelector('.pad-wrap');
+
+    // 핵심 방어: 패드 바깥 여백이나 테두리를 터치했을 때 화면이 찔끔 움직이는 현상을 캡처 단계에서 완벽 차단
+    const blockScroll = (e) => { if (e.cancelable) e.preventDefault(); };
+    if (padWrap) {
+        padWrap.addEventListener("touchstart", blockScroll, { passive: false, capture: true });
+        padWrap.addEventListener("touchmove", blockScroll, { passive: false, capture: true });
+    }
+
+    c.addEventListener("mousedown", start);
+    c.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", end);
     
     // 모바일 터치 전용 이벤트 확실한 할당
     c.addEventListener("touchstart", start, { passive: false });
     c.addEventListener("touchmove", move, { passive: false });
     c.addEventListener("touchend", end, { passive: false });
     c.addEventListener("touchcancel", end, { passive: false });
-
-    const padContainer = document.querySelector('.pad');
-    if (padContainer) {
-        padContainer.addEventListener("touchmove", function(e) {
-            if(e.cancelable) e.preventDefault();
-        }, { passive: false });
-    }
   }
 
   /* ---------- 서명 모달 (아직 안 한 연수만) ---------- */
@@ -815,8 +832,14 @@
     qpos = 0;
 
     el.overlay.classList.add("show");
-    lockBodyScroll(); // 바운스 현상 원천 차단 함수 실행
     
+    // 서명창이 열렸을 때 전체 화면 스크롤링 원천 차단
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    document.body.style.touchAction = "none";
+    document.body.style.overscrollBehavior = "none";
+    
+    lockBodyScroll(); 
     renderStep();
   }
 
@@ -850,7 +873,12 @@
 
   function closeModal() {
     el.overlay.classList.remove("show");
-    unlockBodyScroll(); // 차단 해제 및 원래 스크롤 위치 복구
+    unlockBodyScroll(); 
+    
+    document.documentElement.style.overflow = "";
+    document.body.style.overflow = "";
+    document.body.style.touchAction = "";
+    document.body.style.overscrollBehavior = "";
     
     activeIndex = null; pending = null; queue = []; qpos = 0;
   }
