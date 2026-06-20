@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
+<!-- 모바일에서 화면 확대/축소를 방지합니다 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>상정중 교직원 연수 전자 등록부_융합정보부(2026.6.22.)</title>
 <meta property="og:title" content="상정중 교직원 연수 전자 등록부_융합정보부(2026.6.22.)">
@@ -211,8 +212,7 @@
     position: relative; background: #fff; width: 100%; max-width: 540px;
     border-radius: 18px 18px 0 0; box-shadow: 0 -10px 40px rgba(0,0,0,.25);
     overflow: hidden; 
-    /* ★ 첫 획 튀는 현상의 주범 해결: 화면 좌표를 흔드는 translateY(위로 올라오는) 애니메이션 제거! ★ */
-    animation: modalFadeIn .2s ease-out;
+    animation: modalFadeIn .15s ease-out;
     display: flex; flex-direction: column; max-height: 90vh; max-height: 90dvh; 
   }
   @media (min-width: 560px) { .modal { border-radius: 18px; } }
@@ -644,9 +644,11 @@
   document.querySelectorAll(".total0").forEach(n => n.textContent = ROSTER.length);
   document.querySelectorAll(".total1").forEach(n => n.textContent = ROSTER.length);
 
-  /* ★★★ 모달 바깥 배경 터치 시 스크롤만 얌전하게 방지 ★★★ */
+  /* ★★★ 모달 바깥 배경 터치 시 스크롤 얌전하게 방지 ★★★ */
   function preventModalScroll(e) {
-    if (e.cancelable) e.preventDefault();
+    if (e.target === el.overlay || e.target === el.chooser) {
+       if (e.cancelable) e.preventDefault();
+    }
   }
   
   function preventDutyScroll(e) {
@@ -745,6 +747,8 @@
 
   /* ---------- Signature pad ---------- */
   let ctx, drawing = false, dirty = false, last = null;
+  // ★ 캔버스 좌표를 한 번 구해서 재사용합니다.
+  let canvasRect = null; 
 
   function setupCanvas() {
     const c = el.canvas;
@@ -760,10 +764,13 @@
     ctx.strokeStyle = "#16213a";
     dirty = false;
     el.placeholder.style.opacity = "1"; 
+    canvasRect = null; // 초기화
   }
   
   function pos(e) {
-    const rect = el.canvas.getBoundingClientRect();
+    // 최초에 구한 캔버스 위치를 계속 사용해서, 
+    // 브라우저 툴바 숨김/나타남 등에 따른 미세한 화면 튐을 방어합니다.
+    const rect = canvasRect || el.canvas.getBoundingClientRect();
     let cx = e.clientX;
     let cy = e.clientY;
     if (e.touches && e.touches.length > 0) {
@@ -773,33 +780,47 @@
     return { x: cx - rect.left, y: cy - rect.top };
   }
   
-  /* ★★★ 서명 흔들림 방지: 캔버스 터치 이벤트 완벽 제어 ★★★ */
+  /* ★★★ 서명 흔들림 방지: 캔버스 터치 이벤트 완벽 제어 및 이벤트 버블링 차단 ★★★ */
   function start(e) {
     if (e.cancelable) e.preventDefault(); 
+    e.stopPropagation(); // 중요: 터치 이벤트가 모달이나 body로 새어나가는 것을 차단
+    
     drawing = true; dirty = true;
     el.placeholder.style.opacity = "0"; 
+    
+    // 첫 터치 시 캔버스의 절대 위치를 기록해둡니다.
+    canvasRect = el.canvas.getBoundingClientRect();
     
     last = pos(e);
     ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(last.x + .1, last.y + .1); ctx.stroke();
   }
+  
   function move(e) {
     if (e.cancelable) e.preventDefault(); 
+    e.stopPropagation(); // 스크롤(터치 바운스)을 유발하는 무브 이벤트 버블링 차단
+    
     if (!drawing) return; 
     const p = pos(e);
     ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke();
     last = p;
   }
+  
   function end(e) { 
+    if (e && e.cancelable) e.preventDefault();
+    if (e) e.stopPropagation();
     drawing = false; 
+    canvasRect = null; // 서명이 끝나면 캔버스 좌표 리셋
   }
   
   function bindPad() {
     const c = el.canvas;
     
+    // 마우스 이벤트 (PC용)
     c.addEventListener("mousedown", start);
     c.addEventListener("mousemove", move);
     window.addEventListener("mouseup", end);
     
+    // 모바일 터치 이벤트 (passive: false로 강력히 막음)
     c.addEventListener("touchstart", start, { passive: false });
     c.addEventListener("touchmove", move, { passive: false });
     c.addEventListener("touchend", end, { passive: false });
@@ -884,7 +905,7 @@
       const btn = this; btn.disabled = true; 
       const lbl = btn.textContent; btn.textContent = "저장 중…";
       pending.sigs[t] = el.canvas.toDataURL("image/png");
-      pending.ts[t] = new Date().toISOString(); // ★ 서명 시간 저장
+      pending.ts[t] = new Date().toISOString(); // ★ 서명 시간 저장!
       
       if (!currentUser) {
          el.modalHint.textContent = "저장 실패. 서버와 연결이 끊겼습니다.";
@@ -914,7 +935,7 @@
     }
   };
 
-  /* ---------- 관리자: 서명 모아보기 (시간 표시) ---------- */
+  /* ---------- 관리자: 서명 모아보기 (시간 표시 포함) ---------- */
   document.getElementById("viewBtn").onclick = function () {
     const entries = Object.keys(state).map(Number).sort((a, b) => a - b);
     if (!entries.length) { el.gallery.innerHTML = '<p class="hint">아직 서명한 교직원이 없습니다.</p>'; return; }
