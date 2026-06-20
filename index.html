@@ -209,6 +209,15 @@
   }
   .overlay.show { display: block; }
   
+  /* ★ 핵심 해결책: 서명 모달 전체 및 내부 요소에 브라우저 제스처 하드웨어 차단 (버튼 클릭은 방해하지 않음) */
+  #overlay, #overlay .modal, .pad-wrap, .pad, .pad canvas {
+    touch-action: none !important;
+    overscroll-behavior: none !important;
+    -webkit-user-select: none !important;
+    user-select: none !important;
+    -webkit-touch-callout: none !important;
+  }
+
   .modal {
     position: absolute; bottom: 0; left: 0; right: 0; margin: 0 auto;
     background: #fff; width: 100%; max-width: 540px;
@@ -247,11 +256,9 @@
   .pad {
     position: relative; border: 1.5px dashed var(--line); border-radius: 12px;
     background: #fffdf8; overflow: hidden;
-    touch-action: none; 
   }
   .pad canvas { 
     display: block; width: 100%; height: 200px; 
-    touch-action: none; 
     cursor: crosshair; 
     outline: none;
   }
@@ -780,7 +787,10 @@
     return { x: cx - rect.left, y: cy - rect.top };
   }
   
+  /* ★ 캔버스 동작 중에 브라우저가 끼어들지 못하게 원천 차단 */
   function onDown(e) {
+    if (e.cancelable) e.preventDefault(); 
+    e.stopPropagation(); // 이벤트가 위로 올라가 스크롤을 유발하는 것 차단
     drawing = true; dirty = true;
     el.placeholder.style.opacity = "0"; 
     
@@ -789,6 +799,8 @@
   }
   
   function onMove(e) {
+    if (e.cancelable) e.preventDefault(); 
+    e.stopPropagation(); // 이벤트가 위로 올라가 스크롤을 유발하는 것 차단
     if (!drawing) return; 
     const p = getPos(e);
     ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke();
@@ -796,6 +808,8 @@
   }
   
   function onUp(e) { 
+    if (e.cancelable) e.preventDefault();
+    e.stopPropagation();
     drawing = false; 
   }
   
@@ -803,30 +817,15 @@
     const c = el.canvas;
     
     // PC (마우스)
-    c.addEventListener("mousedown", onDown);
-    c.addEventListener("mousemove", onMove);
+    c.addEventListener("mousedown", onDown, { passive: false });
+    c.addEventListener("mousemove", onMove, { passive: false });
     window.addEventListener("mouseup", onUp);
     
-    /* ★ 모바일 (터치) : 캔버스 내에서의 제스처를 브라우저에 넘기지 않고 완벽하게 독점! */
-    c.addEventListener("touchstart", function(e) {
-        if (e.cancelable) e.preventDefault(); // 스크롤 시도 원천 차단
-        onDown(e);
-    }, { passive: false });
-    
-    c.addEventListener("touchmove", function(e) {
-        if (e.cancelable) e.preventDefault(); // 스크롤 시도 원천 차단
-        onMove(e);
-    }, { passive: false });
-    
-    c.addEventListener("touchend", function(e) {
-        if (e.cancelable) e.preventDefault();
-        onUp(e);
-    }, { passive: false });
-    
-    c.addEventListener("touchcancel", function(e) {
-        if (e.cancelable) e.preventDefault();
-        onUp(e);
-    }, { passive: false });
+    // 모바일 (터치)
+    c.addEventListener("touchstart", onDown, { passive: false });
+    c.addEventListener("touchmove", onMove, { passive: false });
+    window.addEventListener("touchend", onUp, { passive: false });
+    window.addEventListener("touchcancel", onUp, { passive: false });
   }
 
   /* ---------- 서명 모달 (아직 안 한 연수만) ---------- */
