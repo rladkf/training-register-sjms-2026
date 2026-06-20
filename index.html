@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<!-- 모바일에서 화면 확대/축소를 방지합니다 -->
+<!-- 모바일에서 화면 확대/축소를 완벽히 방지합니다 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>상정중 교직원 연수 전자 등록부_융합정보부(2026.6.22.)</title>
 <meta property="og:title" content="상정중 교직원 연수 전자 등록부_융합정보부(2026.6.22.)">
@@ -34,6 +34,12 @@
     font-synthesis-weight: none;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  
+  /* 전역 스크롤 바운스(당겨서 새로고침) 방지 */
+  html, body {
+    overscroll-behavior-y: none;
+  }
+  
   body {
     margin: 0;
     background:
@@ -46,7 +52,7 @@
     -webkit-text-size-adjust: 100%;
   }
 
-  /* 모달이 열렸을 때 뒷배경 스크롤만 얌전하게 방지 */
+  /* 모달이 열렸을 때 뒷배경 스크롤만 방지 */
   body.noscroll {
     overflow: hidden !important;
   }
@@ -199,7 +205,9 @@
 
   /* ---------- Modal (공통) ---------- */
   .overlay {
-    position: fixed; inset: 0;
+    position: fixed; 
+    top: 0; left: 0; right: 0; 
+    /* bottom: 0; 을 빼고 자바스크립트로 height를 px로 고정하여 주소창 변화에 대응합니다 */
     background: rgba(20,28,42,.5); backdrop-filter: blur(3px);
     display: none; align-items: flex-end; justify-content: center; z-index: 50; padding: 0;
   }
@@ -255,6 +263,7 @@
     -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
     outline: none;
   }
+  /* 흔들림 방지: 레이아웃 튐을 방지하기 위해 요소 삭제가 아닌 투명도로 제어 */
   .pad .placeholder {
     position: absolute; left: 10px; right: 10px; bottom: 16px; text-align: center;
     font-size: 12.5px; color: #b9b2a0; pointer-events: none; line-height: 1.4;
@@ -699,13 +708,12 @@
       btn.className = full ? "btn ghost" : "btn";
       btn.textContent = full ? "다시 서명" : (s0 || s1 ? "이어서 서명" : "서명하기");
       
-      // ★ 첫 획 튀는 현상 방지: 버튼을 누르는 즉시 포커스를 잃게 만들어 주소창/키보드 변동을 미리 유도
       btn.onclick = (e) => {
         e.preventDefault();
         if (document.activeElement) {
             document.activeElement.blur(); 
         }
-        // 화면 레이아웃이 완전히 고정될 수 있도록 0.15초의 마법의 대기시간 부여!
+        // 주소창/키보드 변동이 완벽히 안정화되도록 0.15초 대기 후 모달 열기
         setTimeout(() => {
             openModal(i);
         }, 150); 
@@ -739,10 +747,10 @@
 
   function setupCanvas() {
     const c = el.canvas;
-    const rect = c.getBoundingClientRect();
+    // 캔버스 가로를 부모 요소 기준으로 고정
     const dpr = window.devicePixelRatio || 1;
-    c.width = Math.round(rect.width * dpr);
-    c.height = Math.round(200 * dpr);
+    c.width = c.offsetWidth * dpr;
+    c.height = 200 * dpr;
     ctx = c.getContext("2d");
     ctx.scale(dpr, dpr);
     ctx.lineWidth = 2.4;
@@ -754,21 +762,19 @@
   }
   
   function pos(e) {
-    // 캔버스 좌표를 실시간으로 계산하여, 화면 흔들림과 무관하게 선이 그어지도록 함
     const rect = el.canvas.getBoundingClientRect();
-    let cx = e.clientX;
-    let cy = e.clientY;
-    if (e.touches && e.touches.length > 0) {
-      cx = e.touches[0].clientX;
-      cy = e.touches[0].clientY;
-    }
-    return { x: cx - rect.left, y: cy - rect.top };
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   }
   
+  /* ★★★ 흔들림 완전 방지: Pointer Event + 포인터 캡처 ★★★ */
   function start(e) {
     if (e.cancelable) e.preventDefault(); 
     drawing = true; dirty = true;
-    el.placeholder.style.opacity = "0"; // DOM을 지우지 않고 투명도만 0으로 조절 (레이아웃 튐 방지)
+    el.placeholder.style.opacity = "0"; 
+    
+    // 모바일 터치의 포인터를 캔버스에 완전히 귀속시킵니다.
+    // 캔버스 바깥으로 펜이 나가도 스크롤되지 않습니다.
+    el.canvas.setPointerCapture(e.pointerId);
     
     last = pos(e);
     ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(last.x + .1, last.y + .1); ctx.stroke();
@@ -781,38 +787,30 @@
     last = p;
   }
   function end(e) { 
-    drawing = false; 
+    if (drawing) {
+        drawing = false; 
+        el.canvas.releasePointerCapture(e.pointerId);
+    }
   }
   
   function bindPad() {
     const c = el.canvas;
-    
-    c.addEventListener("mousedown", start);
-    c.addEventListener("mousemove", move);
-    window.addEventListener("mouseup", end);
-    
-    c.addEventListener("touchstart", start, { passive: false });
-    c.addEventListener("touchmove", move, { passive: false });
-    window.addEventListener("touchend", end, { passive: false });
-    window.addEventListener("touchcancel", end, { passive: false });
+    // Pointer Events는 터치와 마우스를 모두 커버하며 가장 안전합니다.
+    c.addEventListener("pointerdown", start, { passive: false });
+    c.addEventListener("pointermove", move, { passive: false });
+    c.addEventListener("pointerup", end, { passive: false });
+    c.addEventListener("pointercancel", end, { passive: false });
   }
 
-  /* ★★★ 모달 열렸을 때 화면의 껍데기(overlay)에서 전역적으로 스크롤을 무효화 ★★★ */
-  function overlayScrollLock(e) {
-    // 캔버스 위나 복무상황 스크롤 리스트가 아닐 경우에만 스크롤 방어!
-    if (!e.target.closest('.pad') && !e.target.closest('.duty-list')) {
-        if (e.cancelable) e.preventDefault();
+  // 모달이 열려있을 때 브라우저 UI 변화에 의한 모달 크기 변동 차단
+  window.addEventListener('resize', () => {
+    if (el.overlay.classList.contains("show")) {
+        el.overlay.style.height = window.innerHeight + 'px';
     }
-  }
-
-  // overlay에서 스와이프 하는 행위 완전 무시
-  el.overlay.addEventListener('touchmove', overlayScrollLock, { passive: false });
+  });
 
   /* ---------- 서명 모달 (아직 안 한 연수만) ---------- */
   function openModal(i) {
-    // 혹시 모를 레이아웃 보정을 위해 다시 한 번 모달 오픈 시 높이 픽셀 강제 고정
-    el.overlay.style.height = window.innerHeight + 'px';
-
     activeIndex = i;
     const existing = state[i];
     pending = existing
@@ -827,22 +825,14 @@
     queue = unsigned.length ? unsigned : [0, 1];
     qpos = 0;
 
+    // ★ 열림과 동시에 높이를 px로 완전히 고정 (주소창 토글 방어)
+    el.overlay.style.height = window.innerHeight + 'px';
     el.overlay.classList.add("show");
-    document.body.classList.add("noscroll"); 
     
-    // 모달이 열리면 캔버스 위치 세팅
-    setupCanvas();
-    el.placeholder.textContent = placeholderText();
+    document.body.classList.add("noscroll"); 
     
     renderStep();
   }
-
-  // 가로세로 회전 시 높이 재조정
-  window.addEventListener('resize', () => {
-      if (el.overlay.classList.contains("show")) {
-          el.overlay.style.height = window.innerHeight + 'px';
-      }
-  });
 
   function curT() { return queue[qpos]; }
 
@@ -864,9 +854,11 @@
     el.saveBtn.textContent = (qpos === queue.length - 1) ? "저장하고 완료 ✓" : "저장하고 다음 ▶";
     el.modalHint.classList.remove("show");
 
-    // 다음 단계로 넘어갈 때도 즉시 캔버스 리셋
-    setupCanvas();
-    el.placeholder.textContent = placeholderText();
+    // 애니메이션 이후에 캔버스 좌표를 세팅하여 완벽히 일치시킵니다.
+    setTimeout(() => {
+        setupCanvas();
+        el.placeholder.textContent = placeholderText();
+    }, 10);
   }
 
   function closeModal() {
@@ -897,7 +889,7 @@
       const btn = this; btn.disabled = true; 
       const lbl = btn.textContent; btn.textContent = "저장 중…";
       pending.sigs[t] = el.canvas.toDataURL("image/png");
-      pending.ts[t] = new Date().toISOString(); // ★ 서명 시간 저장!
+      pending.ts[t] = new Date().toISOString(); 
       
       if (!currentUser) {
          el.modalHint.textContent = "저장 실패. 서버와 연결이 끊겼습니다.";
@@ -927,7 +919,7 @@
     }
   };
 
-  /* ---------- 관리자: 서명 모아보기 (시간 표시 추가) ---------- */
+  /* ---------- 관리자: 서명 모아보기 (시간 표시 포함) ---------- */
   document.getElementById("viewBtn").onclick = function () {
     const entries = Object.keys(state).map(Number).sort((a, b) => a - b);
     if (!entries.length) { el.gallery.innerHTML = '<p class="hint">아직 서명한 교직원이 없습니다.</p>'; return; }
@@ -936,7 +928,6 @@
       const r = state[i];
       function cell(t, label) {
         let inner;
-        // ★ 관리자용 갤러리 화면에서만 서명 시간을 작게 표시해 줍니다.
         let tsStr = (r.ts && r.ts[t]) ? `<div class="ts">${formatTS(r.ts[t])}</div>` : '';
 
         if (hasSig(r, t)) inner = `<img src="${r.sigs[t]}" alt="">${tsStr}`;
