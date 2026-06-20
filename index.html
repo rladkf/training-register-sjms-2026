@@ -2,11 +2,10 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<!-- 모바일에서 화면 확대/축소를 완벽히 방지합니다 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>상정중 교직원 연수 전자 등록부_융합정보부(2026.6.22.)</title>
 <meta property="og:title" content="상정중 교직원 연수 전자 등록부_융합정보부(2026.6.22.)">
-<meta property="og:description" content="상정중 교직원 연수 전자 등록부 서명 페이지입니다.">
+<meta property="og:description" content="상정중 교직원 연수 통합 전자 등록부 서명 페이지입니다.">
 
 <link rel="preconnect" href="https://cdn.jsdelivr.net" />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
@@ -35,11 +34,6 @@
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   
-  /* 전역 스크롤 바운스(당겨서 새로고침) 방지 */
-  html, body {
-    overscroll-behavior-y: none;
-  }
-  
   body {
     margin: 0;
     background:
@@ -52,8 +46,8 @@
     -webkit-text-size-adjust: 100%;
   }
 
-  /* 모달이 열렸을 때 뒷배경 스크롤만 방지 */
-  body.noscroll {
+  /* ★ 모달이 열렸을 때만 뒷배경을 얌전하게 멈춰줍니다 */
+  body.modal-open {
     overflow: hidden !important;
     touch-action: none !important;
   }
@@ -206,9 +200,7 @@
 
   /* ---------- Modal (공통) ---------- */
   .overlay {
-    position: fixed; 
-    top: 0; left: 0; right: 0; 
-    /* ★ 핵심 방어: inset:0이나 bottom:0 대신 JS로 height를 명확한 픽셀로 고정하여 주소창 숨김 방어 */
+    position: fixed; inset: 0;
     background: rgba(20,28,42,.5); backdrop-filter: blur(3px);
     display: none; align-items: flex-end; justify-content: center; z-index: 50; padding: 0;
   }
@@ -219,9 +211,9 @@
     position: relative; background: #fff; width: 100%; max-width: 540px;
     border-radius: 18px 18px 0 0; box-shadow: 0 -10px 40px rgba(0,0,0,.25);
     overflow: hidden; 
-    animation: modalFadeIn .15s ease-out;
-    display: flex; flex-direction: column; 
-    max-height: 90%; 
+    /* ★ 첫 획 튀는 현상의 주범 해결: 화면 좌표를 흔드는 translateY(위로 올라오는) 애니메이션 제거! ★ */
+    animation: modalFadeIn .2s ease-out;
+    display: flex; flex-direction: column; max-height: 90vh; max-height: 90dvh; 
   }
   @media (min-width: 560px) { .modal { border-radius: 18px; } }
   @keyframes modalFadeIn { 
@@ -250,22 +242,19 @@
   .modal-head .who-name { font-size: 14px; color: var(--ink-soft); margin-top: 4px; font-weight: 600; }
   .pad-wrap { padding: 12px 22px 4px; }
   
-  /* ★ 서명 패드 CSS: 브라우저 스크롤 완벽 무력화 */
+  /* ★ 서명 패드 CSS: 브라우저 기본 제스처 100% 무력화 */
   .pad {
     position: relative; border: 1.5px dashed var(--line); border-radius: 12px;
     background: #fffdf8; overflow: hidden;
-    touch-action: none !important; 
-    overscroll-behavior: none !important;
+    touch-action: none; /* 브라우저 스크롤/확대 원천 차단 */
     -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
   }
   .pad canvas { 
     display: block; width: 100%; height: 200px; 
-    touch-action: none !important; 
+    touch-action: none; 
     cursor: crosshair; 
-    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
     outline: none;
   }
-  /* 흔들림 방지: 레이아웃 튐을 방지하기 위해 요소 삭제(display: none)가 아닌 투명도 조절로 제어 */
   .pad .placeholder {
     position: absolute; left: 10px; right: 10px; bottom: 16px; text-align: center;
     font-size: 12.5px; color: #b9b2a0; pointer-events: none; line-height: 1.4;
@@ -328,7 +317,6 @@
   .gcard .gsig .gs span { font-size: 9.5px; color: var(--ink-soft); display: block; }
   .gcard .gsig img { width: 100%; height: 40px; object-fit: contain; border: 1px solid var(--line-soft); border-radius: 6px; background:#fff; }
   .gcard .gsig .none { font-size: 10px; color: #c0b9a8; height: 40px; display:flex; align-items:center; justify-content:center; border:1px dashed var(--line); border-radius:6px; }
-  /* ★ 관리자 확인용 연수 서명 일시 (작은 파란색 글씨) */
   .gcard .gsig .gs .ts { font-size: 9px; color: #1f3a5f; margin-top: 3px; font-weight: 600; letter-spacing: -0.02em; }
 
   /* ---------- Reset password gate ---------- */
@@ -656,12 +644,20 @@
   document.querySelectorAll(".total0").forEach(n => n.textContent = ROSTER.length);
   document.querySelectorAll(".total1").forEach(n => n.textContent = ROSTER.length);
 
-  /* ★★★ 모달이 켜져있는 동안 전체 스크롤을 무조건 차단하는 전역 함수 ★★★ */
-  function preventGlobalScroll(e) {
-    // 복무상황 입력 리스트는 예외로 스크롤 허용
-    if (e.target.closest('.duty-list')) return;
+  /* ★★★ 모달 바깥 배경 터치 시 스크롤만 얌전하게 방지 ★★★ */
+  function preventModalScroll(e) {
     if (e.cancelable) e.preventDefault();
   }
+  
+  function preventDutyScroll(e) {
+    if (!e.target.closest('.duty-list')) {
+        if (e.cancelable) e.preventDefault();
+    }
+  }
+
+  el.overlay.addEventListener('touchmove', preventModalScroll, { passive: false });
+  el.chooser.addEventListener('touchmove', preventModalScroll, { passive: false });
+  el.dutyOverlay.addEventListener('touchmove', preventDutyScroll, { passive: false });
 
   function setSync(ok, msg) {
     el.syncDot.classList.toggle("off", !ok);
@@ -717,15 +713,11 @@
       btn.className = full ? "btn ghost" : "btn";
       btn.textContent = full ? "다시 서명" : (s0 || s1 ? "이어서 서명" : "서명하기");
       
-      btn.onclick = (e) => {
-        e.preventDefault();
+      btn.onclick = () => {
         if (document.activeElement) {
-            document.activeElement.blur(); // 키보드 등 숨기기
+            document.activeElement.blur(); 
         }
-        // 화면 레이아웃이 진정할 시간 부여
-        setTimeout(() => {
-            openModal(i);
-        }, 150); 
+        openModal(i);
       };
       
       act.appendChild(btn);
@@ -753,7 +745,6 @@
 
   /* ---------- Signature pad ---------- */
   let ctx, drawing = false, dirty = false, last = null;
-  let canvasRect = null; // ★ 캔버스 좌표를 한 번만 고정시켜서 튀는 것을 막습니다.
 
   function setupCanvas() {
     const c = el.canvas;
@@ -772,29 +763,21 @@
   }
   
   function pos(e) {
-    // ★ 매 획마다 rect를 새로 구하지 않고, 처음 터치했을 때 고정시킨 canvasRect를 사용합니다.
-    const rect = canvasRect || el.canvas.getBoundingClientRect();
+    const rect = el.canvas.getBoundingClientRect();
     let cx = e.clientX;
     let cy = e.clientY;
     if (e.touches && e.touches.length > 0) {
       cx = e.touches[0].clientX;
       cy = e.touches[0].clientY;
-    } else if (e.changedTouches && e.changedTouches.length > 0) {
-      cx = e.changedTouches[0].clientX;
-      cy = e.changedTouches[0].clientY;
     }
     return { x: cx - rect.left, y: cy - rect.top };
   }
   
-  /* ★★★ 서명 흔들림 완전 방지 및 좌표 영구 고정 ★★★ */
+  /* ★★★ 서명 흔들림 방지: 캔버스 터치 이벤트 완벽 제어 ★★★ */
   function start(e) {
     if (e.cancelable) e.preventDefault(); 
     drawing = true; dirty = true;
     el.placeholder.style.opacity = "0"; 
-    
-    // ★ 첫 터치 시 캔버스의 절대 위치를 기록해둡니다! 
-    // 중간에 주소창이 사라져서 브라우저 화면이 1px 늘어나더라도 그려지는 위치가 어긋나지 않습니다.
-    canvasRect = el.canvas.getBoundingClientRect();
     
     last = pos(e);
     ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(last.x + .1, last.y + .1); ctx.stroke();
@@ -807,9 +790,7 @@
     last = p;
   }
   function end(e) { 
-    if (e && e.cancelable) e.preventDefault();
     drawing = false; 
-    canvasRect = null; // 서명이 완료되면 좌표 기억을 리셋합니다.
   }
   
   function bindPad() {
@@ -819,11 +800,10 @@
     c.addEventListener("mousemove", move);
     window.addEventListener("mouseup", end);
     
-    // 모바일 터치 이벤트 (passive: false로 스크롤 완벽 차단)
     c.addEventListener("touchstart", start, { passive: false });
     c.addEventListener("touchmove", move, { passive: false });
-    window.addEventListener("touchend", end, { passive: false });
-    window.addEventListener("touchcancel", end, { passive: false });
+    c.addEventListener("touchend", end, { passive: false });
+    c.addEventListener("touchcancel", end, { passive: false });
   }
 
   /* ---------- 서명 모달 (아직 안 한 연수만) ---------- */
@@ -842,25 +822,11 @@
     queue = unsigned.length ? unsigned : [0, 1];
     qpos = 0;
 
-    // ★ 서명 모달이 열릴 때, 화면 높이를 지금 보이는 픽셀값으로 완전히 강제 고정시켜버립니다.
-    // 이러면 브라우저 주소창이 숨겨지더라도 서명 모달은 절대 커지거나 튀지 않습니다.
-    el.overlay.style.height = window.innerHeight + 'px';
     el.overlay.classList.add("show");
-    
-    document.body.classList.add("noscroll");
-    window.addEventListener('touchmove', preventGlobalScroll, { passive: false });
+    document.body.classList.add("modal-open"); 
     
     renderStep();
   }
-
-  // 화면 가로/세로 회전 시에만 높이를 재계산합니다.
-  window.addEventListener('orientationchange', () => {
-    setTimeout(() => {
-        if (el.overlay.classList.contains("show")) el.overlay.style.height = window.innerHeight + 'px';
-        if (el.dutyOverlay.classList.contains("show")) el.dutyOverlay.style.height = window.innerHeight + 'px';
-        if (el.chooser.classList.contains("show")) el.chooser.style.height = window.innerHeight + 'px';
-    }, 300);
-  });
 
   function curT() { return queue[qpos]; }
 
@@ -892,10 +858,7 @@
 
   function closeModal() {
     el.overlay.classList.remove("show");
-    el.overlay.style.height = ''; // 높이 고정 해제
-    
-    document.body.classList.remove("noscroll");
-    window.removeEventListener('touchmove', preventGlobalScroll);
+    document.body.classList.remove("modal-open");
     
     activeIndex = null; pending = null; queue = []; qpos = 0;
   }
@@ -921,7 +884,7 @@
       const btn = this; btn.disabled = true; 
       const lbl = btn.textContent; btn.textContent = "저장 중…";
       pending.sigs[t] = el.canvas.toDataURL("image/png");
-      pending.ts[t] = new Date().toISOString(); // ★ 서명 시간 저장!
+      pending.ts[t] = new Date().toISOString(); // ★ 서명 시간 저장
       
       if (!currentUser) {
          el.modalHint.textContent = "저장 실패. 서버와 연결이 끊겼습니다.";
@@ -951,7 +914,7 @@
     }
   };
 
-  /* ---------- 관리자: 서명 모아보기 (시간 표시 포함) ---------- */
+  /* ---------- 관리자: 서명 모아보기 (시간 표시) ---------- */
   document.getElementById("viewBtn").onclick = function () {
     const entries = Object.keys(state).map(Number).sort((a, b) => a - b);
     if (!entries.length) { el.gallery.innerHTML = '<p class="hint">아직 서명한 교직원이 없습니다.</p>'; return; }
@@ -1058,28 +1021,19 @@
 
   document.getElementById("printBtn").onclick = function () {
     renderDutyList();
-    el.dutyOverlay.style.height = window.innerHeight + 'px';
     el.dutyOverlay.classList.add("show");
-    
-    document.body.classList.add("noscroll");
-    window.addEventListener('touchmove', preventGlobalScroll, { passive: false });
+    document.body.classList.add("modal-open");
   };
   function closeDuty() {
     el.dutyOverlay.classList.remove("show");
-    el.dutyOverlay.style.height = '';
-    
-    document.body.classList.remove("noscroll");
-    window.removeEventListener('touchmove', preventGlobalScroll);
+    document.body.classList.remove("modal-open");
   }
   document.getElementById("dutyClose").onclick = closeDuty;
   el.dutyOverlay.addEventListener("click", e => { if (e.target === el.dutyOverlay) closeDuty(); });
   document.getElementById("dutyNext").onclick = function () {
     closeDuty();
-    el.chooser.style.height = window.innerHeight + 'px';
     el.chooser.classList.add("show");
-    
-    document.body.classList.add("noscroll");
-    window.addEventListener('touchmove', preventGlobalScroll, { passive: false });
+    document.body.classList.add("modal-open");
   };
 
   /* ---------- 등록부 마크업 생성 ---------- */
@@ -1153,10 +1107,7 @@
   /* ---------- 출력 형식 선택 ---------- */
   function closeChooser() {
     el.chooser.classList.remove("show");
-    el.chooser.style.height = '';
-    
-    document.body.classList.remove("noscroll");
-    window.removeEventListener('touchmove', preventGlobalScroll);
+    document.body.classList.remove("modal-open");
   }
   document.getElementById("chCancel").onclick = closeChooser;
   el.chooser.addEventListener("click", e => { if (e.target === el.chooser) closeChooser(); });
