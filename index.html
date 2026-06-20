@@ -202,6 +202,9 @@
     position: fixed; inset: 0;
     background: rgba(20,28,42,.5); backdrop-filter: blur(3px);
     display: none; align-items: flex-end; justify-content: center; z-index: 50; padding: 0;
+    /* 모바일 브라우저 주소창 변화에 흔들리지 않도록 svh 단위 사용 */
+    height: 100vh;
+    height: 100svh;
   }
   .overlay.show { display: flex; }
   @media (min-width: 560px) { .overlay { align-items: center; padding: 20px; } }
@@ -237,19 +240,19 @@
   .pad-wrap { padding: 12px 22px 4px; }
   
   /* ★ 서명 패드 CSS: 브라우저 기본 제스처 무력화 */
-  .pad, .pad * {
-    touch-action: none !important; /* 브라우저 스크롤/확대 원천 차단 */
-  }
   .pad {
     position: relative; border: 1.5px dashed var(--line); border-radius: 12px;
     background: #fffdf8; overflow: hidden;
+    touch-action: none !important; /* 브라우저 스크롤/확대 원천 차단 */
     overscroll-behavior: none !important;
     -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
   }
   .pad canvas { 
     display: block; width: 100%; height: 200px; 
+    touch-action: none !important; 
     cursor: crosshair; 
     -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+    outline: none;
   }
   .pad .placeholder {
     position: absolute; left: 10px; right: 10px; bottom: 16px; text-align: center;
@@ -637,14 +640,13 @@
   document.querySelectorAll(".total0").forEach(n => n.textContent = ROSTER.length);
   document.querySelectorAll(".total1").forEach(n => n.textContent = ROSTER.length);
 
-  /* ★★★ 모달 바깥 배경(어두운 곳) 터치 시 스크롤만 방지 (다른 요소 건드리지 않음) ★★★ */
+  /* ★★★ 모달 바깥 배경(어두운 곳) 터치 시 스크롤만 얌전하게 방지 ★★★ */
   function preventModalScroll(e) {
     if (e.target === el.overlay || e.target === el.chooser) {
        if (e.cancelable) e.preventDefault();
     }
   }
   
-  /* 복무 상황 입력 모달 전용 스크롤 예외 처리 */
   function preventDutyScroll(e) {
     if (!e.target.closest('.duty-list')) {
         if (e.cancelable) e.preventDefault();
@@ -701,7 +703,19 @@
       const btn = document.createElement("button");
       btn.className = full ? "btn ghost" : "btn";
       btn.textContent = full ? "다시 서명" : (s0 || s1 ? "이어서 서명" : "서명하기");
-      btn.onclick = () => openModal(i);
+      
+      // ★ 첫 획 튀는 현상 방지: 버튼 누를 때 키보드/주소창 포커스부터 없애고 약간 대기 후 모달 열기 ★
+      btn.onclick = (e) => {
+        e.preventDefault();
+        if (document.activeElement) {
+            document.activeElement.blur();
+        }
+        // 화면 레이아웃(주소창 등)이 제자리로 돌아갈 시간을 0.15초 줍니다.
+        setTimeout(() => {
+            openModal(i);
+        }, 150);
+      };
+      
       act.appendChild(btn);
       frag.appendChild(row);
     });
@@ -755,35 +769,38 @@
     return { x: cx - rect.left, y: cy - rect.top };
   }
   
-  /* ★★★ 서명 흔들림 완전 방지: 캔버스 터치 이벤트 방어 ★★★ */
+  /* ★★★ 서명 흔들림 완전 방지: 캔버스 터치 이벤트 방어 및 이벤트 버블링 차단 ★★★ */
   function start(e) {
-    if (e.type.startsWith('touch') && e.cancelable) e.preventDefault(); 
+    if (e.cancelable) e.preventDefault(); 
+    e.stopPropagation(); // 브라우저 상위로 터치 이벤트가 넘어가지 않도록 차단
     drawing = true; dirty = true;
     el.placeholder.style.display = "none";
     last = pos(e);
     ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(last.x + .1, last.y + .1); ctx.stroke();
   }
   function move(e) {
-    if (e.type.startsWith('touch') && e.cancelable) e.preventDefault(); 
+    if (e.cancelable) e.preventDefault(); 
+    e.stopPropagation(); // 브라우저 상위로 터치 이벤트가 넘어가지 않도록 차단
     if (!drawing) return; 
     const p = pos(e);
     ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke();
     last = p;
   }
   function end(e) { 
-    if (e && e.type.startsWith('touch') && e.cancelable) e.preventDefault();
+    if (e && e.cancelable) e.preventDefault();
+    if (e) e.stopPropagation();
     drawing = false; 
   }
   
   function bindPad() {
     const c = el.canvas;
     
-    // 마우스 이벤트 바인딩 (PC용)
+    // 마우스 이벤트 (PC)
     c.addEventListener("mousedown", start);
     c.addEventListener("mousemove", move);
     window.addEventListener("mouseup", end);
     
-    // 모바일 터치 이벤트 바인딩 (passive: false를 적용해 터치 스크롤 100% 무력화)
+    // 모바일 터치 이벤트 (passive: false 및 완벽한 차단)
     c.addEventListener("touchstart", start, { passive: false });
     c.addEventListener("touchmove", move, { passive: false });
     c.addEventListener("touchend", end, { passive: false });
@@ -792,11 +809,6 @@
 
   /* ---------- 서명 모달 (아직 안 한 연수만) ---------- */
   function openModal(i) {
-    // ★ 첫 획 흔들림 원인 1순위: 포커스 강제 해제 (키보드 및 주소창 숨김 현상 원천 차단) ★
-    if (document.activeElement) {
-        document.activeElement.blur();
-    }
-
     activeIndex = i;
     const existing = state[i];
     pending = existing
@@ -812,7 +824,9 @@
     qpos = 0;
 
     el.overlay.classList.add("show");
-    document.body.classList.add("noscroll"); // 배경 스크롤 얌전하게 멈춤
+    
+    // 모달 배경 스크롤 방지용 클래스 추가
+    document.body.classList.add("noscroll");
     
     renderStep();
   }
